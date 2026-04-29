@@ -3,20 +3,20 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Sorties Caen — Agenda des salles</title>
+  <title>Sorties Caen &#8212; Agenda des salles</title>
   <link rel="stylesheet" href="/static/css/style.css" />
 </head>
 <body>
   <header>
     <div class="header-inner">
       <div class="header-title">
-        <span class="logo">🎵</span>
+        <span class="logo">&#9835;</span>
         <h1>Sorties Caen</h1>
         <span class="subtitle">Agenda des salles de spectacle</span>
       </div>
       <div class="header-actions">
-        <button id="btn-scrape" class="btn btn-primary" title="Relancer la récupération des données">
-          ↻ Mettre à jour
+        <button id="btn-scrape" class="btn btn-primary" title="Relancer la r&#233;cup&#233;ration des donn&#233;es">
+          &#8635; Mettre &#224; jour
         </button>
         <span id="scrape-status" class="scrape-status"></span>
       </div>
@@ -24,15 +24,15 @@
   </header>
 
   <main>
-    <!-- Dernières sorties programmées -->
+    <!-- Derni&#232;res sorties programm&#233;es -->
     <section id="section-new" class="section-new">
       <h2 class="section-title">
         <span class="dot-new"></span>
-        Dernières sorties programmées
+        Derni&#232;res sorties programm&#233;es
         <span id="new-count" class="badge"></span>
       </h2>
       <div id="new-events-list" class="new-events-list">
-        <div class="loading">Chargement…</div>
+        <div class="loading">Chargement&#8230;</div>
       </div>
     </section>
 
@@ -53,18 +53,18 @@
       <div id="calendar" class="calendar-grid"></div>
     </section>
 
-    <!-- Liste des événements du jour / mois sélectionné -->
+    <!-- Liste des &#233;v&#233;nements du jour / mois s&#233;lectionn&#233; -->
     <section id="section-events" class="section-events">
-      <h2 class="section-title" id="events-list-title">Événements</h2>
+      <h2 class="section-title" id="events-list-title">&#201;v&#233;nements</h2>
       <div id="events-list" class="events-list"></div>
     </section>
   </main>
 
-  <!-- Modal détail événement -->
+  <!-- Modal d&#233;tail &#233;v&#233;nement -->
   <div id="modal" class="modal hidden">
     <div class="modal-overlay" id="modal-overlay"></div>
     <div class="modal-content">
-      <button class="modal-close" id="modal-close">✕</button>
+      <button class="modal-close" id="modal-close">&#10005;</button>
       <div id="modal-body"></div>
     </div>
   </div>

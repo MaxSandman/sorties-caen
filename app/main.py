@@ -78,8 +78,8 @@ class ScrapeLogOut(BaseModel):
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
-    with open("app/static/index.html") as f:
-        return f.read()
+    with open("app/static/index.html", encoding="utf-8") as f:
+        return HTMLResponse(content=f.read(), media_type="text/html; charset=utf-8")
 
 
 @app.get("/api/events", response_model=list[EventOut])
