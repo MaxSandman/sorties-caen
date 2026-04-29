@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sorties Caen — Agenda des salles</title>
+  <link rel="stylesheet" href="/static/css/style.css" />
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <div class="header-title">
+        <span class="logo">🎵</span>
+        <h1>Sorties Caen</h1>
+        <span class="subtitle">Agenda des salles de spectacle</span>
+      </div>
+      <div class="header-actions">
+        <button id="btn-scrape" class="btn btn-primary" title="Relancer la récupération des données">
+          ↻ Mettre à jour
+        </button>
+        <span id="scrape-status" class="scrape-status"></span>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- Dernières sorties programmées -->
+    <section id="section-new" class="section-new">
+      <h2 class="section-title">
+        <span class="dot-new"></span>
+        Dernières sorties programmées
+        <span id="new-count" class="badge"></span>
+      </h2>
+      <div id="new-events-list" class="new-events-list">
+        <div class="loading">Chargement…</div>
+      </div>
+    </section>
+
+    <!-- Filtres de salles -->
+    <section class="section-filters">
+      <div id="venue-filters" class="venue-filters">
+        <button class="filter-btn active" data-venue="">Toutes les salles</button>
+      </div>
+    </section>
+
+    <!-- Calendrier -->
+    <section class="section-calendar">
+      <div class="calendar-nav">
+        <button id="btn-prev" class="nav-btn">&#8249;</button>
+        <h2 id="calendar-title" class="calendar-title"></h2>
+        <button id="btn-next" class="nav-btn">&#8250;</button>
+      </div>
+      <div id="calendar" class="calendar-grid"></div>
+    </section>
+
+    <!-- Liste des événements du jour / mois sélectionné -->
+    <section id="section-events" class="section-events">
+      <h2 class="section-title" id="events-list-title">Événements</h2>
+      <div id="events-list" class="events-list"></div>
+    </section>
+  </main>
+
+  <!-- Modal détail événement -->
+  <div id="modal" class="modal hidden">
+    <div class="modal-overlay" id="modal-overlay"></div>
+    <div class="modal-content">
+      <button class="modal-close" id="modal-close">✕</button>
+      <div id="modal-body"></div>
+    </div>
+  </div>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
