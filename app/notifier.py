@@ -1,3 +1,4 @@
+import base64
 import logging
 import os
 from typing import TYPE_CHECKING
@@ -32,12 +33,15 @@ def send_new_events_notification(events: list["Event"]) -> None:
 
     body = "\n".join(lines)
 
+    def _rfc2047(s: str) -> str:
+        return "=?utf-8?b?" + base64.b64encode(s.encode()).decode() + "?="
+
     try:
         httpx.post(
             f"{base_url}/{topic}",
-            content=body.encode(),
+            content=body.encode("utf-8"),
             headers={
-                "Title": title,
+                "Title": _rfc2047(title),
                 "Priority": "default",
                 "Tags": "ticket",
                 "Click": f"{app_base}/?tab=new",
