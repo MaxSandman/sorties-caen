@@ -5,7 +5,18 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional
 
+import httpx
+
 logger = logging.getLogger(__name__)
+
+_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (X11; Linux x86_64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/120.0.0.0 Safari/537.36"
+    ),
+    "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8",
+}
 
 
 @dataclass
@@ -44,18 +55,19 @@ class BaseScraper(ABC):
         pass
 
     async def _get_page(self, url: str, wait_for: Optional[str] = None) -> str:
-        """Fetch a page with Playwright, optionally waiting for a CSS selector."""
+        """Fetch a page with httpx (fast). wait_for is ignored — kept for API compat."""
+        async with httpx.AsyncClient(headers=_HEADERS, follow_redirects=True, timeout=30) as client:
+            r = await client.get(url)
+            r.raise_for_status()
+            return r.text
+
+    async def _get_page_js(self, url: str, wait_for: Optional[str] = None) -> str:
+        """Fetch a page with Playwright for sites that require JavaScript rendering."""
         from playwright.async_api import async_playwright
 
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
-            context = await browser.new_context(
-                user_agent=(
-                    "Mozilla/5.0 (X11; Linux x86_64) "
-                    "AppleWebKit/537.36 (KHTML, like Gecko) "
-                    "Chrome/120.0.0.0 Safari/537.36"
-                )
-            )
+            context = await browser.new_context(user_agent=_HEADERS["User-Agent"])
             page = await context.new_page()
             await page.goto(url, wait_until="load", timeout=60000)
             if wait_for:
