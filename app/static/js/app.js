@@ -198,49 +198,89 @@ function getNewEvents() {
 }
 
 // ============================================================
-// Rendu : section "Nouvelles dates"
+// Panneau notifications (cloche)
 // ============================================================
-function renderNewSection() {
-  const newEvs      = getNewEvents();
-  const section     = document.getElementById('section-new');
-  const countEl     = document.getElementById('new-count');
-  const unseenBadge = document.getElementById('unseen-badge');
+function updateBellBadge() {
+  const n     = getNewEvents().length;
+  const badge = document.getElementById('unseen-badge');
+  if (n > 0) {
+    badge.textContent = n > 99 ? '99+' : n;
+    badge.classList.remove('hidden');
+  } else {
+    badge.classList.add('hidden');
+  }
+}
+
+function notifEventHTML(ev) {
+  const colour  = venueColour(ev.venue_key);
+  const relTime = relativeTime(ev.first_seen_at || ev.first_seen);
+  const d       = new Date(ev.date);
+  const dateLbl = `${d.getDate()} ${MONTHS_LONG[d.getMonth()]}`;
+  const timeLbl = ev.time ? ` · ${normalizeTime(ev.time)}` : '';
+  const { primary, secondary } = eventLabels(ev);
+  const book = ev.booking_url
+    ? `<a class="btn-reserve-sm" href="${esc(ev.booking_url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Réserver</a>`
+    : '';
+  return `
+    <div class="notif-event" onclick="openModal(${ev.id});closeNotifPanel()">
+      ${thumbHTML(ev)}
+      <div class="notif-event-info">
+        <span class="notif-event-primary">${esc(primary)}</span>
+        ${secondary ? `<span class="notif-event-secondary">${esc(secondary)}</span>` : ''}
+        <span class="notif-event-meta">${esc(dateLbl)}${timeLbl}</span>
+        ${relTime ? `<span class="notif-rel-time">${esc(relTime)}</span>` : ''}
+      </div>
+      <div class="notif-event-actions">${book}</div>
+    </div>`;
+}
+
+function renderNotifPanel() {
+  const newEvs = getNewEvents();
+  const body   = document.getElementById('notif-body');
+  if (!body) return;
 
   if (newEvs.length === 0) {
-    section.classList.add('hidden');
-    unseenBadge.classList.add('hidden');
+    body.innerHTML = '<p class="notif-empty">Aucun nouvel événement.</p>';
     return;
   }
 
-  section.classList.remove('hidden');
-  countEl.textContent = newEvs.length;
-  unseenBadge.textContent = newEvs.length;
-  unseenBadge.classList.remove('hidden');
+  // Group by venue
+  const byVenue = new Map();
+  newEvs.forEach(ev => {
+    if (!byVenue.has(ev.venue_key)) byVenue.set(ev.venue_key, { name: ev.venue, evs: [] });
+    byVenue.get(ev.venue_key).evs.push(ev);
+  });
 
-  document.getElementById('new-events-list').innerHTML = newEvs.map(ev => {
-    const colour  = venueColour(ev.venue_key);
-    const relTime = relativeTime(ev.first_seen_at || ev.first_seen);
-    const d       = new Date(ev.date);
-    const dateLbl = `${d.getDate()} ${MONTHS_LONG[d.getMonth()]}`;
-    const timeLbl = ev.time ? ` à ${normalizeTime(ev.time)}` : '';
-    const book    = ev.booking_url
-      ? `<a class="btn-reserve-sm" href="${esc(ev.booking_url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Réserver</a>`
-      : '';
-    const { primary, secondary } = eventLabels(ev);
-    return `
-      <div class="new-event-item" onclick="openModal(${ev.id})">
-        <div class="new-event-left">
-          <span class="venue-chip" style="--vc:${colour}">${esc(ev.venue)}</span>
-          <span class="new-event-primary">${esc(primary)}</span>
-          ${secondary ? `<span class="new-event-secondary">${esc(secondary)}</span>` : ''}
-          <span class="new-event-date">${dateLbl}${timeLbl}</span>
-        </div>
-        <div class="new-event-right">
-          <span class="rel-time">${relTime}</span>
-          ${book}
-        </div>
-      </div>`;
-  }).join('');
+  let html = '';
+  byVenue.forEach(({ name, evs }) => {
+    const colour = venueColour(evs[0].venue_key);
+    html += `<div class="notif-venue-group">
+      <div class="notif-venue-header">
+        <span class="notif-venue-dot" style="background:${colour}"></span>
+        <span class="notif-venue-name">${esc(name)}</span>
+        <span class="notif-venue-count">${evs.length}</span>
+      </div>
+      ${evs.map(notifEventHTML).join('')}
+    </div>`;
+  });
+
+  body.innerHTML = html;
+}
+
+function openNotifPanel() {
+  renderNotifPanel();
+  document.getElementById('notif-panel').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeNotifPanel() {
+  document.getElementById('notif-panel').classList.add('hidden');
+  document.body.style.overflow = '';
+}
+
+// Keep renderNewSection as a no-op alias so nothing breaks
+function renderNewSection() {
+  updateBellBadge();
 }
 
 // ============================================================
@@ -474,7 +514,7 @@ function openModal(eventId) {
   if (!ev.seen) {
     ev.seen = true;
     markSeen([ev.id]);
-    renderNewSection();
+    updateBellBadge();
     renderTimeline();
   }
 }
@@ -499,7 +539,8 @@ async function markSeen(ids) {
 
 async function markAllSeen() {
   state.allEvents.forEach(ev => { ev.seen = true; });
-  renderNewSection();
+  updateBellBadge();
+  renderNotifPanel();
   renderTimeline();
   await markSeen(null);
 }
@@ -602,7 +643,7 @@ function initTheme() {
 async function loadAll() {
   try {
     state.allEvents = await fetch('/api/events').then(r => r.json());
-    renderNewSection();
+    updateBellBadge();
     renderVenueChips();
     if (state.view === 'list') {
       renderTimeline();
@@ -627,23 +668,28 @@ function init() {
     applyTheme(next);
   };
 
-  // Cloche → scroll vers les nouvelles dates
+  // Cloche → ouvre le panneau notifications
   document.getElementById('btn-bell').onclick = () => {
-    const sect = document.getElementById('section-new');
-    if (!sect.classList.contains('hidden')) {
-      sect.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+    const panel = document.getElementById('notif-panel');
+    if (panel.classList.contains('hidden')) openNotifPanel();
+    else closeNotifPanel();
   };
+
+  // Fermeture panneau notifications
+  document.getElementById('notif-close').onclick   = closeNotifPanel;
+  document.getElementById('notif-overlay').onclick = closeNotifPanel;
 
   // Modal
   document.getElementById('modal-close').onclick   = closeModal;
   document.getElementById('modal-overlay').onclick = closeModal;
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { closeModal(); closeNotifPanel(); }
+  });
 
   // Bouton mise à jour
   document.getElementById('btn-scrape').onclick = triggerScrape;
 
-  // Tout marquer comme vu
+  // Tout marquer comme vu (dans le panneau)
   document.getElementById('btn-mark-all-seen').onclick = markAllSeen;
 
   // Recherche en direct

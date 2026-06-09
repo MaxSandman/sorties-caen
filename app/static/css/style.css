@@ -225,98 +225,195 @@ main {
 .hidden { display: none !important; }
 
 /* ============================================================
-   Section Nouvelles Dates
+   Panneau notifications (cloche)
    ============================================================ */
-.section-new {
+
+/* Overlay fullscreen (used on mobile, transparent on desktop) */
+.notif-panel {
+  position: fixed;
+  inset: 0;
+  z-index: 150;
+  pointer-events: none;
+}
+.notif-panel:not(.hidden) { pointer-events: auto; }
+
+.notif-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+}
+
+/* Panel content */
+.notif-content {
+  position: absolute;
   background: var(--bg2);
   border: 1px solid var(--border);
-  border-left: 3px solid var(--new);
-  border-radius: 10px;
-  padding: 13px 17px;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px var(--shadow);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  /* Desktop: dropdown below bell — positioned via JS-free CSS trick */
+  top: 56px;
+  right: 20px;
+  width: 420px;
+  max-height: calc(100vh - 80px);
 }
 
-.section-new-header {
+.notif-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 11px;
-  gap: 12px;
-  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
 }
 
+.notif-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  flex: 1;
+}
+
+.notif-close {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  width: 26px; height: 26px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.78rem;
+  line-height: 1;
+  flex-shrink: 0;
+  transition: background 0.12s;
+}
+.notif-close:hover { background: var(--border); }
+
+.notif-body {
+  overflow-y: auto;
+  flex: 1;
+  padding: 6px 0;
+}
+
+/* Venue group */
+.notif-venue-group { padding-bottom: 4px; }
+
+.notif-venue-header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px 4px;
+}
+
+.notif-venue-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.notif-venue-name {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--muted);
+  flex: 1;
+}
+
+.notif-venue-count {
+  font-size: 0.65rem;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1px 6px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+/* Event row inside panel */
+.notif-event {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 14px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.notif-event:hover { background: var(--bg3); }
+
+.notif-event .ev-thumb {
+  width: 40px;
+  height: 52px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  font-size: 0.9rem;
+}
+
+.notif-event-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.notif-event-primary {
+  font-size: 0.875rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notif-event-secondary {
+  font-size: 0.75rem;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notif-event-meta {
+  font-size: 0.73rem;
+  color: var(--muted);
+}
+
+.notif-rel-time {
+  font-size: 0.67rem;
+  color: var(--new);
+  font-weight: 600;
+}
+
+.notif-event-actions { flex-shrink: 0; }
+
+.notif-empty {
+  color: var(--muted);
+  font-size: 0.85rem;
+  text-align: center;
+  padding: 24px 0;
+}
+
+/* Mobile: fullscreen overlay */
+@media (max-width: 700px) {
+  .notif-content {
+    top: 0;
+    right: 0;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    max-height: 100%;
+    border-radius: 0;
+    border: none;
+  }
+}
+
+/* Section title (used in calendar) */
 .section-title {
   font-size: 0.93rem;
   font-weight: 700;
   display: flex;
   align-items: center;
   gap: 7px;
-}
-
-.dot-new {
-  width: 8px; height: 8px;
-  border-radius: 50%;
-  background: var(--new);
-  box-shadow: 0 0 6px var(--new);
-  flex-shrink: 0;
-}
-
-.badge {
-  background: var(--new);
-  color: #000;
-  border-radius: 10px;
-  padding: 1px 7px;
-  font-size: 0.68rem;
-  font-weight: 700;
-}
-
-.new-events-list {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.new-event-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 7px 9px;
-  border-radius: 7px;
-  cursor: pointer;
-  transition: background 0.12s;
-}
-.new-event-item:hover { background: var(--bg3); }
-
-.new-event-left {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  min-width: 0;
-}
-
-.new-event-primary {
-  font-weight: 600;
-  font-size: 0.89rem;
-}
-
-.new-event-secondary {
-  font-size: 0.77rem;
-  color: var(--muted);
-  font-weight: 400;
-}
-
-.new-event-date {
-  font-size: 0.77rem;
-  color: var(--muted);
-  white-space: nowrap;
-}
-
-.new-event-right {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-shrink: 0;
 }
 
 .rel-time {

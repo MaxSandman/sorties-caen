@@ -27,20 +27,20 @@
     </div>
   </header>
 
-  <main>
-
-    <!-- Nouvelles dates (seen=false) -->
-    <section id="section-new" class="section-new hidden">
-      <div class="section-new-header">
-        <h2 class="section-title">
-          <span class="dot-new"></span>
-          Nouvelles dates
-          <span id="new-count" class="badge"></span>
-        </h2>
+  <!-- Panneau notifications cloche -->
+  <div id="notif-panel" class="notif-panel hidden" role="dialog" aria-label="Derniers ajouts">
+    <div class="notif-overlay" id="notif-overlay"></div>
+    <div class="notif-content">
+      <div class="notif-header">
+        <span class="notif-title">&#128276; Derniers ajouts</span>
         <button id="btn-mark-all-seen" class="btn btn-ghost">Tout marquer comme vu</button>
+        <button class="notif-close" id="notif-close" aria-label="Fermer">&#10005;</button>
       </div>
-      <div id="new-events-list" class="new-events-list"></div>
-    </section>
+      <div id="notif-body" class="notif-body"></div>
+    </div>
+  </div>
+
+  <main>
 
     <!-- Barre de contrôles -->
     <div class="controls-bar">
