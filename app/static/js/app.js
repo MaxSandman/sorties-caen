@@ -219,6 +219,7 @@ function renderNewSection() {
         <div class="new-event-left">
           <span class="venue-chip" style="--vc:${colour}">${esc(ev.venue)}</span>
           <span class="new-event-title">${esc(ev.title)}</span>
+          ${ev.artist ? `<span class="event-artist">${esc(ev.artist)}</span>` : ''}
           <span class="new-event-date">${dateLbl}${timeLbl}</span>
         </div>
         <div class="new-event-right">
@@ -242,7 +243,10 @@ function eventRowHTML(ev) {
     <div class="event-row${isNew ? ' is-new' : ''}" onclick="openModal(${ev.id})">
       <span class="event-time">${esc(ev.time || '—')}</span>
       <span class="venue-chip" style="--vc:${colour}">${esc(ev.venue)}</span>
-      <span class="event-title">${esc(ev.title)}</span>
+      <span class="event-title-block">
+        <span class="event-title">${esc(ev.title)}</span>
+        ${ev.artist ? `<span class="event-artist">${esc(ev.artist)}</span>` : ''}
+      </span>
       ${isNew ? '<span class="badge-new">Nouveau</span>' : ''}
       <div class="event-actions">
         ${book}
@@ -403,6 +407,7 @@ function openModal(eventId) {
   document.getElementById('modal-body').innerHTML = `
     <div class="modal-venue-tag" style="background:${colour}">${esc(ev.venue)}</div>
     <h2 class="modal-title">${esc(ev.title)}</h2>
+    ${ev.artist ? `<p class="modal-artist">${esc(ev.artist)}</p>` : ''}
     <p class="modal-date">📅 ${dateStr}</p>
     ${ev.category    ? `<p class="modal-meta">Catégorie : ${esc(ev.category)}</p>` : ''}
     ${ev.price       ? `<p class="modal-meta">Tarif : ${esc(ev.price)}</p>` : ''}
