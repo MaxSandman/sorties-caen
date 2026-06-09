@@ -214,12 +214,13 @@ function renderNewSection() {
     const book    = ev.booking_url
       ? `<a class="btn-reserve-sm" href="${esc(ev.booking_url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Réserver</a>`
       : '';
+    const { primary, secondary } = eventLabels(ev);
     return `
       <div class="new-event-item" onclick="openModal(${ev.id})">
         <div class="new-event-left">
           <span class="venue-chip" style="--vc:${colour}">${esc(ev.venue)}</span>
-          <span class="new-event-title">${esc(ev.title)}</span>
-          ${ev.artist ? `<span class="event-artist">${esc(ev.artist)}</span>` : ''}
+          <span class="new-event-primary">${esc(primary)}</span>
+          ${secondary ? `<span class="new-event-secondary">${esc(secondary)}</span>` : ''}
           <span class="new-event-date">${dateLbl}${timeLbl}</span>
         </div>
         <div class="new-event-right">
@@ -233,10 +234,22 @@ function renderNewSection() {
 // ============================================================
 // Rendu : une ligne événement (réutilisée dans fil + calendrier)
 // ============================================================
+
+// Retourne { primary, secondary } selon la règle artiste/titre.
+function eventLabels(ev) {
+  const title  = (ev.title  || '').trim();
+  const artist = (ev.artist || '').trim();
+  if (!artist || artist.toLowerCase() === title.toLowerCase()) {
+    return { primary: title, secondary: null };
+  }
+  return { primary: artist, secondary: title };
+}
+
 function eventRowHTML(ev) {
-  const colour = venueColour(ev.venue_key);
-  const isNew  = !ev.seen;
-  const book   = ev.booking_url
+  const colour        = venueColour(ev.venue_key);
+  const isNew         = !ev.seen;
+  const { primary, secondary } = eventLabels(ev);
+  const book = ev.booking_url
     ? `<a class="btn-reserve" href="${esc(ev.booking_url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Réserver</a>`
     : '';
   return `
@@ -244,10 +257,9 @@ function eventRowHTML(ev) {
       <span class="event-time">${esc(ev.time || '—')}</span>
       <span class="venue-chip" style="--vc:${colour}">${esc(ev.venue)}</span>
       <span class="event-title-block">
-        <span class="event-title">${esc(ev.title)}</span>
-        ${ev.artist ? `<span class="event-artist">${esc(ev.artist)}</span>` : ''}
+        <span class="event-primary">${esc(primary)}${isNew ? ' <span class="badge-new">Nouveau</span>' : ''}</span>
+        ${secondary ? `<span class="event-secondary">${esc(secondary)}</span>` : ''}
       </span>
-      ${isNew ? '<span class="badge-new">Nouveau</span>' : ''}
       <div class="event-actions">
         ${book}
         <button class="btn-ics" title="Ajouter à mon agenda" onclick="event.stopPropagation();generateICS(${ev.id})">📅</button>
