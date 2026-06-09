@@ -22,11 +22,5 @@ members = d.get('members', [])
 print(f'Page 1: {len(members)} shows')
 if members:
     show = members[0]
-    print(f'\nPremier show: {show.get("title")}')
-    print(f'  slug: {show.get("slug")}')
-    print(f'  category: {show.get("category", {}).get("name") if show.get("category") else None}')
-    print(f'  media: {show.get("media")}')
-    slots = show.get('slots', [])
-    print(f'  slots ({len(slots)}):')
-    for s in slots[:3]:
-        print(f'    {json.dumps(s, ensure_ascii=False)}')
+    print(f'\nPremier show complet:')
+    print(json.dumps(show, ensure_ascii=False, indent=2))
