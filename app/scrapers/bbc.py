@@ -1,18 +1,41 @@
 """
 Scraper for Le BBC (Big Band Café) — https://bigbandcafe.com/concerts/
 
-Le BBC is a jazz/blues venue. The site is likely WordPress with an events plugin.
-Selector notes:
-  - Event cards:   .event, .tribe-event, article  or  .concert-item
-  - Title:         h2, h3, .tribe-event-title  or  .entry-title
-  - Date:          time[datetime]  or  .tribe-event-schedule-details  or  .event-date
-  - Booking:       a[href*='reservation']  or  a.tribe-event-url
+Real HTML structure observed:
+  - Cards:   div.post-item
+  - Title:   .post-item-description h2 a
+  - Date:    span.span-caousel-home  →  "ven. 12 juin 2026 - 20:00"
+  - Image:   .post-image img
+  - URL:     .post-image a  or  h2 a
 """
 
 import re
 from bs4 import BeautifulSoup
+from datetime import datetime
 from .base import BaseScraper, RawEvent
-from .theatre_ouest import _parse_french_date
+
+MONTHS_FR = {
+    "janvier": 1, "février": 2, "fevrier": 2, "mars": 3, "avril": 4,
+    "mai": 5, "juin": 6, "juillet": 7, "août": 8, "aout": 8,
+    "septembre": 9, "octobre": 10, "novembre": 11, "décembre": 12, "decembre": 12,
+}
+
+
+def _parse_bbc_date(text: str):
+    """Parse 'ven. 12 juin 2026 - 20:00' → (datetime, '20:00')"""
+    text = text.strip().lower()
+    m = re.search(r"(\d{1,2})\s+(\w+)\s+(\d{4})", text)
+    if not m:
+        return None, None
+    day, month_str, year = int(m.group(1)), m.group(2), int(m.group(3))
+    month = MONTHS_FR.get(month_str)
+    if not month:
+        return None, None
+    time_str = None
+    tm = re.search(r"(\d{1,2}):(\d{2})", text)
+    if tm:
+        time_str = f"{tm.group(1)}h{tm.group(2)}"
+    return datetime(year, month, day), time_str
 
 
 class BBCScraper(BaseScraper):
@@ -22,83 +45,38 @@ class BBCScraper(BaseScraper):
     list_url = "https://bigbandcafe.com/concerts/"
 
     async def _scrape(self) -> list[RawEvent]:
-        html = await self._get_page(self.list_url, wait_for=".event, article, .tribe-events-loop")
+        html = await self._get_page(self.list_url)
         soup = BeautifulSoup(html, "html.parser")
         events = []
 
-        # The Events Calendar (WordPress plugin) uses .tribe-* classes
-        cards = (
-            soup.select(".tribe-events-loop .tribe-event")
-            or soup.select(".tribe-events-loop article")
-            or soup.select("article.type-tribe_events")
-            or soup.select(".event-item")
-            or soup.select(".concert-item")
-            or soup.select("article")
-        )
-
-        for card in cards:
+        for card in soup.select("div.post-item"):
             try:
-                title_el = (
-                    card.select_one(".tribe-event-title")
-                    or card.select_one(".entry-title")
-                    or card.select_one("h2")
-                    or card.select_one("h3")
-                    or card.select_one(".event-title")
-                )
+                title_el = card.select_one(".post-item-description h2 a") or card.select_one("h2 a")
                 if not title_el:
                     continue
                 title = title_el.get_text(strip=True)
                 if len(title) < 2:
                     continue
 
-                date = None
-                time_el = card.select_one("time[datetime]")
-                if time_el:
-                    date = _parse_french_date(time_el.get("datetime", ""))
-                if not date:
-                    date_el = card.select_one(
-                        ".tribe-event-schedule-details, .event-date, "
-                        ".date, abbr[title]"
-                    )
-                    if date_el:
-                        raw = date_el.get("title") or date_el.get_text()
-                        date = _parse_french_date(raw)
+                date_el = card.select_one("span.span-caousel-home")
+                if not date_el:
+                    continue
+                date, time_str = _parse_bbc_date(date_el.get_text())
                 if not date:
                     continue
 
-                time_str = None
-                if time_el:
-                    t = time_el.get_text(strip=True)
-                    m = re.search(r"\d{1,2}[h:]\d{0,2}", t)
-                    if m:
-                        time_str = m.group(0)
+                link_el = card.select_one(".post-image a") or card.select_one("h2 a")
+                event_url = link_el["href"] if link_el else None
 
-                link_el = (
-                    card.select_one("a.tribe-event-url")
-                    or card.select_one(".tribe-event-title a")
-                    or card.select_one("a[href]")
-                )
-                event_url = None
-                if link_el:
-                    href = link_el["href"]
-                    event_url = href if href.startswith("http") else self.base_url + href
-
-                booking_el = card.select_one(
-                    "a[href*='reservation'], a[href*='billet'], "
-                    "a[href*='weezevent'], a[href*='helloasso']"
-                )
-                booking_url = None
-                if booking_el:
-                    booking_url = booking_el["href"]
-                elif event_url:
-                    booking_url = event_url
-
-                img_el = card.select_one("img")
+                img_el = card.select_one(".post-image img")
                 image_url = None
                 if img_el:
                     src = img_el.get("src") or img_el.get("data-src", "")
                     if src and not src.endswith(".svg"):
                         image_url = src if src.startswith("http") else self.base_url + src
+
+                category_el = card.select_one(".post-meta-category")
+                category = category_el.get_text(strip=True) if category_el else "Concert"
 
                 events.append(RawEvent(
                     title=title,
@@ -107,9 +85,9 @@ class BBCScraper(BaseScraper):
                     date=date,
                     time=time_str,
                     event_url=event_url,
-                    booking_url=booking_url,
+                    booking_url=event_url,
                     image_url=image_url,
-                    category="Jazz / Blues",
+                    category=category,
                     external_id=self._make_external_id(title, date.date()),
                 ))
             except Exception:

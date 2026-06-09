@@ -45,7 +45,7 @@ class TheatreOuestScraper(BaseScraper):
     list_url = "https://theatrealouest.com/caen/spectacle/liste?sort=date-ASC"
 
     async def _scrape(self) -> list[RawEvent]:
-        html = await self._get_page(self.list_url, wait_for=".spectacle-item, article, .show-list")
+        html = await self._get_page_js(self.list_url, wait_for=".spectacle-item, article, .show-list")
         soup = BeautifulSoup(html, "html.parser")
         events = []
 
