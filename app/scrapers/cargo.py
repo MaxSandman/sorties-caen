@@ -96,8 +96,13 @@ class CargoScraper(BaseScraper):
                 elif event_url:
                     booking_url = event_url
 
-                img_el = card.select_one("img[data-src]")
-                image_url = img_el.get("data-src") if img_el else None
+                img_el = card.select_one("img")
+                image_url = None
+                if img_el:
+                    src = (img_el.get("data-src") or img_el.get("src") or
+                           img_el.get("data-lazy-src") or img_el.get("data-original") or "")
+                    if src and not src.endswith(".svg") and not src.endswith("placeholder"):
+                        image_url = src if src.startswith("http") else self.base_url + src
 
                 events.append(RawEvent(
                     title=title,

@@ -118,7 +118,15 @@ class TheatreOuestScraper(BaseScraper):
         # Booking URL: Angular router uses /reserver-places/{slug} for ticketing.
         booking_url = f"{SITE_BASE}/caen/spectacle/reserver-places/{slug}" if slug else event_url
 
-        image_url = show.get("media") or None
+        media = show.get("media")
+        if isinstance(media, dict):
+            image_url = media.get("url") or media.get("src") or media.get("path") or None
+        elif isinstance(media, str) and media.startswith("http"):
+            image_url = media
+        elif isinstance(media, str) and media:
+            image_url = f"{API_BASE}/{media.lstrip('/')}"
+        else:
+            image_url = None
 
         category = (
             show.get("category", {}).get("name", "Spectacle")

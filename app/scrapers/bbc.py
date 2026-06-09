@@ -68,11 +68,12 @@ class BBCScraper(BaseScraper):
                 link_el = card.select_one(".post-image a") or card.select_one("h2 a")
                 event_url = link_el["href"] if link_el else None
 
-                img_el = card.select_one(".post-image img")
+                img_el = card.select_one(".post-image img") or card.select_one("img")
                 image_url = None
                 if img_el:
-                    src = img_el.get("src") or img_el.get("data-src", "")
-                    if src and not src.endswith(".svg"):
+                    src = (img_el.get("src") or img_el.get("data-src") or
+                           img_el.get("data-lazy-src") or img_el.get("data-original") or "")
+                    if src and not src.endswith(".svg") and "placeholder" not in src:
                         image_url = src if src.startswith("http") else self.base_url + src
 
                 category_el = card.select_one(".post-meta-category")
