@@ -572,19 +572,28 @@ async function triggerScrape() {
 // ============================================================
 // Thème (Clair / Sombre / Auto)
 // ============================================================
+function _isEffectivelyLight(theme) {
+  if (theme === 'light') return true;
+  if (theme === 'dark')  return false;
+  return window.matchMedia('(prefers-color-scheme: light)').matches;
+}
+
 function applyTheme(theme) {
-  const html = document.documentElement;
-  html.classList.remove('theme-light', 'theme-dark', 'theme-auto');
-  html.classList.add('theme-' + theme);
-  document.querySelectorAll('.theme-btn').forEach(b =>
-    b.classList.toggle('active', b.dataset.theme === theme)
-  );
+  document.documentElement.classList.remove('theme-light', 'theme-dark', 'theme-auto');
+  document.documentElement.classList.add('theme-' + theme);
+  const btn = document.getElementById('btn-theme');
+  if (btn) btn.textContent = _isEffectivelyLight(theme) ? '☽' : '☀';
   localStorage.setItem('sc-theme', theme);
 }
 
 function initTheme() {
   const saved = localStorage.getItem('sc-theme') || 'auto';
   applyTheme(saved);
+  // Met à jour l'icône si la préférence système change (mode auto)
+  window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
+    const current = localStorage.getItem('sc-theme') || 'auto';
+    if (current === 'auto') applyTheme('auto');
+  });
 }
 
 // ============================================================
@@ -611,11 +620,12 @@ async function loadAll() {
 // Init
 // ============================================================
 function init() {
-  // Thème
+  // Thème : bascule clair ↔ sombre au clic
   initTheme();
-  document.querySelectorAll('.theme-btn').forEach(btn => {
-    btn.onclick = () => applyTheme(btn.dataset.theme);
-  });
+  document.getElementById('btn-theme').onclick = () => {
+    const next = _isEffectivelyLight(localStorage.getItem('sc-theme') || 'auto') ? 'dark' : 'light';
+    applyTheme(next);
+  };
 
   // Cloche → scroll vers les nouvelles dates
   document.getElementById('btn-bell').onclick = () => {
