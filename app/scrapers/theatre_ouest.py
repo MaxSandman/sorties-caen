@@ -10,6 +10,27 @@ from datetime import datetime, date
 from .base import BaseScraper, RawEvent
 
 CAEN_AREA_ID = "5e4e0cb9-ac24-40a9-8a79-216ec1b0b3f4"
+
+_MONTHS_FR = {
+    "janvier": 1, "février": 2, "mars": 3, "avril": 4,
+    "mai": 5, "juin": 6, "juillet": 7, "août": 8,
+    "septembre": 9, "octobre": 10, "novembre": 11, "décembre": 12,
+}
+
+import re as _re
+
+def _parse_french_date(text: str) -> datetime | None:
+    text = text.strip().lower()
+    m = _re.search(r"(\d{1,2})\s+(\w+)\s+(\d{4})", text)
+    if m:
+        day, month_str, year = int(m.group(1)), m.group(2), int(m.group(3))
+        month = _MONTHS_FR.get(month_str)
+        if month:
+            return datetime(year, month, day)
+    try:
+        return datetime.fromisoformat(text[:10])
+    except Exception:
+        return None
 API_BASE = "https://api.theatrealouest.com"
 SITE_BASE = "https://theatrealouest.com"
 
