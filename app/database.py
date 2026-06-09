@@ -28,8 +28,13 @@ class Event(Base):
     category = Column(String, nullable=True)
     external_id = Column(String, nullable=True)  # unique ID from source site
     is_new = Column(Boolean, default=True)        # flagged for "Dernières sorties"
+    seen = Column(Boolean, default=False)         # user has acknowledged this event
     first_seen = Column(DateTime, default=datetime.utcnow)
     last_updated = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    @property
+    def first_seen_at(self) -> datetime:
+        return self.first_seen
 
 
 class ScrapeLog(Base):
@@ -54,3 +59,17 @@ def get_db():
 
 def init_db():
     Base.metadata.create_all(bind=engine)
+    _migrate()
+
+
+def _migrate():
+    """Apply additive SQLite migrations without dropping data."""
+    with engine.connect() as conn:
+        existing = {row[1] for row in conn.execute(
+            __import__("sqlalchemy").text("PRAGMA table_info(events)")
+        )}
+        if "seen" not in existing:
+            conn.execute(__import__("sqlalchemy").text(
+                "ALTER TABLE events ADD COLUMN seen BOOLEAN NOT NULL DEFAULT 0"
+            ))
+            conn.commit()

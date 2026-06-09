@@ -8,6 +8,7 @@ from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy.orm import Session
 
 from .database import SessionLocal, Event, ScrapeLog
+from .notifier import send_new_events_notification
 from .scrapers import ALL_SCRAPERS
 from .scrapers.base import RawEvent
 
@@ -15,15 +16,14 @@ logger = logging.getLogger(__name__)
 _scheduler = BackgroundScheduler(timezone="Europe/Paris")
 
 
-def _upsert_events(db: Session, raw_events: list[RawEvent], venue_key: str) -> int:
-    """Insert new events, update existing ones. Returns count of newly added events."""
-    added = 0
+def _upsert_events(db: Session, raw_events: list[RawEvent], venue_key: str) -> tuple[int, list[Event]]:
+    """Insert new events, update existing ones. Returns (count, list) of newly added events."""
+    new_events: list[Event] = []
     for raw in raw_events:
         existing = None
         if raw.external_id:
             existing = db.query(Event).filter(Event.external_id == raw.external_id).first()
         if not existing:
-            # Also check by title + date to avoid duplicates when external_id changes
             existing = (
                 db.query(Event)
                 .filter(
@@ -35,7 +35,6 @@ def _upsert_events(db: Session, raw_events: list[RawEvent], venue_key: str) -> i
             )
 
         if existing:
-            # Update mutable fields but keep first_seen and is_new
             existing.booking_url = raw.booking_url or existing.booking_url
             existing.event_url = raw.event_url or existing.event_url
             existing.image_url = raw.image_url or existing.image_url
@@ -57,26 +56,28 @@ def _upsert_events(db: Session, raw_events: list[RawEvent], venue_key: str) -> i
                 category=raw.category,
                 external_id=raw.external_id,
                 is_new=True,
+                seen=False,
                 first_seen=datetime.utcnow(),
             )
             db.add(event)
-            added += 1
+            new_events.append(event)
 
     db.commit()
-    return added
+    return len(new_events), new_events
 
 
-async def _run_scraper(scraper_class, venue_key: Optional[str] = None):
-    """Run a single scraper and persist results."""
+async def _run_scraper(scraper_class, venue_key: Optional[str] = None) -> list[Event]:
+    """Run a single scraper, persist results, return list of newly inserted events."""
     scraper = scraper_class()
     if venue_key and scraper.venue_key != venue_key:
-        return
+        return []
 
     db: Session = SessionLocal()
     log = ScrapeLog(venue_key=scraper.venue_key, scraped_at=datetime.utcnow())
+    new_events: list[Event] = []
     try:
         raw_events = await scraper.scrape()
-        added = _upsert_events(db, raw_events, scraper.venue_key)
+        added, new_events = _upsert_events(db, raw_events, scraper.venue_key)
         log.events_found = len(raw_events)
         log.events_added = added
         log.success = True
@@ -89,13 +90,18 @@ async def _run_scraper(scraper_class, venue_key: Optional[str] = None):
         db.add(log)
         db.commit()
         db.close()
+    return new_events
 
 
 def run_all_scrapers(venue_key: Optional[str] = None):
     """Entry point called by scheduler (sync) or API (async-wrapped)."""
     async def _run_all():
-        tasks = [_run_scraper(cls, venue_key) for cls in ALL_SCRAPERS]
-        await asyncio.gather(*tasks)
+        results = await asyncio.gather(
+            *[_run_scraper(cls, venue_key) for cls in ALL_SCRAPERS]
+        )
+        all_new: list[Event] = [ev for batch in results for ev in batch]
+        if all_new:
+            send_new_events_notification(all_new)
 
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
