@@ -76,44 +76,32 @@ class TheatreOuestScraper(BaseScraper):
         event_url = f"{SITE_BASE}/caen/spectacle/{slug}" if slug else None
         image_url = show.get("media")
         category = show.get("category", {}).get("name", "Spectacle") if show.get("category") else "Spectacle"
-        artists = show.get("artists", "")
-        if artists:
-            title = f"{title} — {artists}" if artists not in title else title
 
-        # Each slot is a session/date
-        slots = show.get("slots", [])
-        events = []
-
-        if not slots or (len(slots) == 1 and not slots[0].get("from")):
-            # No slot data — create a placeholder without a date (skip)
+        # slots is a dict {"from": "2026-06-09 21:00:00", "to": "..."}
+        slots = show.get("slots")
+        if not slots or not isinstance(slots, dict):
             return []
 
-        for slot in slots:
-            slot_from = slot.get("from")
-            if not slot_from:
-                continue
-            try:
-                dt = datetime.fromisoformat(slot_from.replace("Z", "+00:00"))
-                event_date = datetime(dt.year, dt.month, dt.day)
-                time_str = dt.strftime("%Hh%M") if (dt.hour or dt.minute) else None
-            except Exception:
-                continue
+        slot_from = slots.get("from")
+        if not slot_from:
+            return []
 
-            booking_url = slot.get("bookingUrl") or slot.get("url") or event_url
+        try:
+            dt = datetime.strptime(slot_from, "%Y-%m-%d %H:%M:%S")
+            event_date = datetime(dt.year, dt.month, dt.day)
+            time_str = dt.strftime("%Hh%M") if (dt.hour or dt.minute) else None
+        except Exception:
+            return []
 
-            events.append(RawEvent(
-                title=title,
-                venue=self.venue_name,
-                venue_key=self.venue_key,
-                date=event_date,
-                time=time_str,
-                event_url=event_url,
-                booking_url=booking_url,
-                image_url=image_url,
-                category=category,
-                external_id=self._make_external_id(
-                    show_id or title, event_date.date()
-                ),
-            ))
-
-        return events
+        return [RawEvent(
+            title=title,
+            venue=self.venue_name,
+            venue_key=self.venue_key,
+            date=event_date,
+            time=time_str,
+            event_url=event_url,
+            booking_url=event_url,
+            image_url=image_url,
+            category=category,
+            external_id=self._make_external_id(show_id or title, event_date.date()),
+        )]
