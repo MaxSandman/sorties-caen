@@ -48,6 +48,17 @@ function venueColour(key) {
   return VENUE_COLOURS[key] || DEFAULT_COLOUR;
 }
 
+// Normalise toute heure en "HHhMM" (ex: "20:30"→"20h30", "21h"→"21h00")
+function normalizeTime(t) {
+  if (!t) return null;
+  t = String(t).trim();
+  let m = t.match(/^(\d{1,2})[hH](\d{0,2})$/);
+  if (m) return m[1].padStart(2,'0') + 'h' + (m[2] || '00').padStart(2,'0');
+  m = t.match(/^(\d{1,2}):(\d{2})$/);
+  if (m) return m[1].padStart(2,'0') + 'h' + m[2];
+  return t;
+}
+
 // Temps relatif depuis un datetime UTC
 function relativeTime(dateStr) {
   if (!dateStr) return '';
@@ -80,7 +91,8 @@ function dayHeaderLabel(dateStr) {
 function formatFullDate(dateStr, timeStr) {
   const d = new Date(dateStr);
   let s = `${DAYS_LONG[d.getDay()]} ${d.getDate()} ${MONTHS_LONG[d.getMonth()]} ${d.getFullYear()}`;
-  if (timeStr) s += ` à ${timeStr}`;
+  const t = normalizeTime(timeStr);
+  if (t) s += ` à ${t}`;
   return s;
 }
 
@@ -210,7 +222,7 @@ function renderNewSection() {
     const relTime = relativeTime(ev.first_seen_at || ev.first_seen);
     const d       = new Date(ev.date);
     const dateLbl = `${d.getDate()} ${MONTHS_LONG[d.getMonth()]}`;
-    const timeLbl = ev.time ? ` à ${ev.time}` : '';
+    const timeLbl = ev.time ? ` à ${normalizeTime(ev.time)}` : '';
     const book    = ev.booking_url
       ? `<a class="btn-reserve-sm" href="${esc(ev.booking_url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Réserver</a>`
       : '';
@@ -273,7 +285,7 @@ function eventRowHTML(ev) {
   return `
     <div class="event-row${isNew ? ' is-new' : ''}" onclick="openModal(${ev.id})">
       ${thumbHTML(ev)}
-      <span class="event-time">${esc(ev.time || '—')}</span>
+      <span class="event-time">${esc(normalizeTime(ev.time) || '—')}</span>
       <span class="venue-chip" style="--vc:${colour}">${esc(ev.venue)}</span>
       <span class="event-title-block">
         <span class="event-primary">${esc(primary)}${isNew ? ' <span class="badge-new">Nouveau</span>' : ''}</span>
@@ -378,11 +390,18 @@ function buildCalendar(year, month, events) {
     const isSel   = state.calDay === day;
     const hasEv   = dayEvs.length > 0;
 
-    const dots = dayEvs.slice(0, 6).map(ev =>
-      `<div class="day-dot" style="background:${venueColour(ev.venue_key)}"></div>`
-    ).join('');
-    const countBadge = dayEvs.length > 6
-      ? `<span class="day-events-count">+${dayEvs.length}</span>` : '';
+    const MAX_LINES = 3;
+    const shown = dayEvs.slice(0, MAX_LINES);
+    const rest  = dayEvs.length - MAX_LINES;
+    const lines = shown.map(ev => {
+      const { primary } = eventLabels(ev);
+      return `<div class="cal-ev-line">
+        <span class="cal-ev-dot" style="background:${venueColour(ev.venue_key)}"></span>
+        <span class="cal-ev-text">${esc(primary)}</span>
+      </div>`;
+    }).join('');
+    const more = rest > 0
+      ? `<div class="cal-ev-more">+${rest} autre${rest > 1 ? 's' : ''}</div>` : '';
 
     const cls = ['cal-day',
       hasEv && 'has-events', isToday && 'today', isSel && 'selected'
@@ -390,8 +409,7 @@ function buildCalendar(year, month, events) {
 
     html += `<div class="${cls}"${hasEv ? ` onclick="calSelectDay(${day})"` : ''}>
       <div class="day-num">${day}</div>
-      <div class="day-dots">${dots}</div>
-      ${countBadge}
+      ${lines}${more}
     </div>`;
   }
 
@@ -552,6 +570,24 @@ async function triggerScrape() {
 }
 
 // ============================================================
+// Thème (Clair / Sombre / Auto)
+// ============================================================
+function applyTheme(theme) {
+  const html = document.documentElement;
+  html.classList.remove('theme-light', 'theme-dark', 'theme-auto');
+  html.classList.add('theme-' + theme);
+  document.querySelectorAll('.theme-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.theme === theme)
+  );
+  localStorage.setItem('sc-theme', theme);
+}
+
+function initTheme() {
+  const saved = localStorage.getItem('sc-theme') || 'auto';
+  applyTheme(saved);
+}
+
+// ============================================================
 // Chargement
 // ============================================================
 async function loadAll() {
@@ -575,6 +611,20 @@ async function loadAll() {
 // Init
 // ============================================================
 function init() {
+  // Thème
+  initTheme();
+  document.querySelectorAll('.theme-btn').forEach(btn => {
+    btn.onclick = () => applyTheme(btn.dataset.theme);
+  });
+
+  // Cloche → scroll vers les nouvelles dates
+  document.getElementById('btn-bell').onclick = () => {
+    const sect = document.getElementById('section-new');
+    if (!sect.classList.contains('hidden')) {
+      sect.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
   // Modal
   document.getElementById('modal-close').onclick   = closeModal;
   document.getElementById('modal-overlay').onclick = closeModal;

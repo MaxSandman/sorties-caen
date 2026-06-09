@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" class="theme-auto">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -11,14 +11,22 @@
     <div class="header-inner">
       <div class="header-brand">
         <span class="logo">&#9835;</span>
-        <h1>Sorties Caen <span id="unseen-badge" class="unseen-badge hidden"></span></h1>
+        <h1>Sorties Caen</h1>
       </div>
       <div class="header-search">
         <input type="search" id="search-input" placeholder="Rechercher un titre, un artiste&#8230;" autocomplete="off" />
       </div>
       <div class="header-actions">
+        <button id="btn-bell" class="btn-bell" aria-label="Nouvelles dates">
+          &#128276;<span id="unseen-badge" class="unseen-badge hidden"></span>
+        </button>
         <button id="btn-scrape" class="btn btn-primary">&#8635; Mettre &#224; jour</button>
         <span id="scrape-status" class="scrape-status"></span>
+        <div class="theme-switcher" id="theme-switcher" role="group" aria-label="Th&#232;me">
+          <button class="theme-btn" data-theme="light">Clair</button>
+          <button class="theme-btn" data-theme="auto">Auto</button>
+          <button class="theme-btn" data-theme="dark">Sombre</button>
+        </div>
       </div>
     </div>
   </header>
@@ -38,18 +46,30 @@
       <div id="new-events-list" class="new-events-list"></div>
     </section>
 
-    <!-- Barre de contrôles : toggle vue + raccourcis + chips salles -->
-    <div class="section-controls">
-      <div class="view-toggle" role="group" aria-label="Mode d&#39;affichage">
-        <button id="btn-view-list" class="toggle-btn active" onclick="setView('list')">&#8801; Liste</button>
-        <button id="btn-view-calendar" class="toggle-btn" onclick="setView('calendar')">&#8862; Calendrier</button>
+    <!-- Barre de contrôles -->
+    <div class="controls-bar">
+      <!-- Niveau 2a : sélecteur de vue -->
+      <div class="controls-views">
+        <div class="view-toggle" role="group" aria-label="Mode d&#39;affichage">
+          <button id="btn-view-list" class="view-btn active" onclick="setView('list')">&#8801; Liste</button>
+          <button id="btn-view-calendar" class="view-btn" onclick="setView('calendar')">&#8862; Calendrier</button>
+        </div>
       </div>
-      <div class="time-shortcuts">
-        <button class="time-btn" data-period="weekend" onclick="setPeriod('weekend')">Ce week-end</button>
-        <button class="time-btn" data-period="week"    onclick="setPeriod('week')">Cette semaine</button>
-        <button class="time-btn" data-period="month"   onclick="setPeriod('month')">Ce mois</button>
+      <!-- Niveau 2b : filtres -->
+      <div class="controls-filters">
+        <div class="filter-group">
+          <span class="filter-label">P&#233;riode</span>
+          <div class="time-shortcuts">
+            <button class="time-btn" data-period="weekend" onclick="setPeriod('weekend')">Ce week-end</button>
+            <button class="time-btn" data-period="week"    onclick="setPeriod('week')">Cette semaine</button>
+            <button class="time-btn" data-period="month"   onclick="setPeriod('month')">Ce mois</button>
+          </div>
+        </div>
+        <div class="filter-group filter-group--venues">
+          <span class="filter-label">Salles</span>
+          <div id="venue-filters" class="venue-chips-row"></div>
+        </div>
       </div>
-      <div id="venue-filters" class="venue-chips-row"></div>
     </div>
 
     <!-- Vue fil chronologique (défaut) -->
