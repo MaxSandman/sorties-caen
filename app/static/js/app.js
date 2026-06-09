@@ -245,6 +245,24 @@ function eventLabels(ev) {
   return { primary: artist, secondary: title };
 }
 
+// Initiale de la salle (ex. "Le Cargö" → "C", "Zénith de Caen" → "Z")
+function venueInitial(name) {
+  const stripped = (name || '').replace(/^(le|la|les|l'|l')\s*/i, '').trim();
+  return (stripped[0] || '?').toUpperCase();
+}
+
+// Vignette affiche : image si dispo, tuile colorée sinon
+function thumbHTML(ev) {
+  const colour = venueColour(ev.venue_key);
+  if (ev.image_url) {
+    return `<div class="ev-thumb">
+      <img src="${esc(ev.image_url)}" alt="" loading="lazy" onerror="this.parentElement.classList.add('ev-thumb--fallback');this.remove()">
+      <div class="ev-thumb__fallback" style="--vc:${colour}" aria-hidden="true">${esc(venueInitial(ev.venue))}</div>
+    </div>`;
+  }
+  return `<div class="ev-thumb ev-thumb--fallback" style="--vc:${colour}" aria-hidden="true">${esc(venueInitial(ev.venue))}</div>`;
+}
+
 function eventRowHTML(ev) {
   const colour        = venueColour(ev.venue_key);
   const isNew         = !ev.seen;
@@ -254,6 +272,7 @@ function eventRowHTML(ev) {
     : '';
   return `
     <div class="event-row${isNew ? ' is-new' : ''}" onclick="openModal(${ev.id})">
+      ${thumbHTML(ev)}
       <span class="event-time">${esc(ev.time || '—')}</span>
       <span class="venue-chip" style="--vc:${colour}">${esc(ev.venue)}</span>
       <span class="event-title-block">

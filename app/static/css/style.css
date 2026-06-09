@@ -385,13 +385,13 @@ main {
 
 .day-events { display: flex; flex-direction: column; }
 
-/* Colonnes fixes : [heure 56px] [chip salle 160px] [contenu 1fr] [actions auto] */
+/* Colonnes fixes : [thumb 52px] [heure 56px] [chip salle 160px] [contenu 1fr] [actions auto] */
 .event-row {
   display: grid;
-  grid-template-columns: 56px 160px 1fr auto;
+  grid-template-columns: 52px 56px 160px 1fr auto;
   align-items: center;
   column-gap: 10px;
-  padding: 9px 8px;
+  padding: 6px 8px;
   border-radius: 6px;
   cursor: pointer;
   transition: background 0.1s;
@@ -400,6 +400,50 @@ main {
 .event-row:last-child { border-bottom: none; }
 .event-row:hover { background: var(--bg2); }
 .event-row.is-new { border-left: 3px solid var(--new); padding-left: 5px; }
+
+/* Vignette affiche */
+.ev-thumb {
+  width: 52px;
+  height: 70px;
+  border-radius: 5px;
+  overflow: hidden;
+  flex-shrink: 0;
+  position: relative;
+  background: color-mix(in srgb, var(--vc, var(--border)) 22%, var(--bg3));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--vc, var(--muted)) 80%, #fff);
+  letter-spacing: 0;
+  user-select: none;
+}
+.ev-thumb img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+}
+/* Quand l'image est chargée, masquer le texte de repli derrière */
+.ev-thumb__fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--vc, var(--muted)) 80%, #fff);
+  background: color-mix(in srgb, var(--vc, var(--border)) 22%, var(--bg3));
+  z-index: 0;
+}
+/* Tuile pure (pas d'image du tout) */
+.ev-thumb--fallback {
+  background: color-mix(in srgb, var(--vc, var(--border)) 22%, var(--bg3)) !important;
+}
 
 .event-time {
   font-size: 0.8rem;
@@ -671,21 +715,21 @@ main {
   .cal-day { min-height: 48px; }
   .calendar-grid { gap: 2px; }
 
-  /* Ligne événement : grille 2 colonnes sur mobile [heure auto] [reste 1fr] */
+  /* Ligne événement : [thumb 44px] [reste en 2 lignes] */
   .event-row {
     grid-template-columns: 44px 1fr;
     grid-template-rows: auto auto;
     column-gap: 8px;
-    row-gap: 2px;
+    row-gap: 3px;
     align-items: start;
-    padding: 8px 6px;
+    padding: 7px 6px;
   }
-  /* chip salle + actions sur la 2e ligne, dans la col 2 */
-  .event-row > .venue-chip  { grid-column: 2; grid-row: 2; justify-self: start; }
+  .event-row > .ev-thumb       { grid-column: 1; grid-row: 1 / 3; width: 44px; height: 60px; }
   .event-row > .event-title-block { grid-column: 2; grid-row: 1; }
-  .event-row > .event-time  { grid-column: 1; grid-row: 1; text-align: right; font-size: 0.76rem; }
-  .event-row > .event-actions { grid-column: 2; grid-row: 2; justify-self: end; }
-  .event-primary { font-size: 0.88rem; white-space: normal; }
+  .event-row > .event-time     { display: none; }
+  .event-row > .venue-chip     { grid-column: 2; grid-row: 2; justify-self: start; }
+  .event-row > .event-actions  { grid-column: 2; grid-row: 2; justify-self: end; }
+  .event-primary   { font-size: 0.88rem; white-space: normal; }
   .event-secondary { white-space: normal; }
 
   /* Nouvelles dates : colonne sur mobile */
