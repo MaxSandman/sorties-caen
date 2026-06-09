@@ -494,18 +494,23 @@ function openModal(eventId) {
   const dateStr = formatFullDate(ev.date, ev.time);
 
   document.getElementById('modal-body').innerHTML = `
-    <div class="modal-venue-tag" style="background:${colour}">${esc(ev.venue)}</div>
-    <h2 class="modal-title">${esc(ev.title)}</h2>
-    ${ev.artist ? `<p class="modal-artist">${esc(ev.artist)}</p>` : ''}
-    <p class="modal-date">📅 ${dateStr}</p>
-    ${ev.category    ? `<p class="modal-meta">Catégorie : ${esc(ev.category)}</p>` : ''}
-    ${ev.price       ? `<p class="modal-meta">Tarif : ${esc(ev.price)}</p>` : ''}
-    ${ev.description ? `<p class="modal-desc">${esc(ev.description)}</p>` : ''}
-    <div class="modal-actions">
-      ${ev.booking_url
-        ? `<a class="modal-book" href="${esc(ev.booking_url)}" target="_blank" rel="noopener">🎟 Réserver des billets</a>`
-        : ''}
-      <button class="btn btn-secondary" onclick="generateICS(${ev.id})">📅 Ajouter à mon agenda</button>
+    ${ev.image_url ? `<div class="modal-image">
+      <img src="${esc(ev.image_url)}" alt="${esc(ev.title)}" loading="lazy">
+    </div>` : ''}
+    <div class="modal-info">
+      <div class="modal-venue-tag" style="background:${colour}">${esc(ev.venue)}</div>
+      <h2 class="modal-title">${esc(ev.title)}</h2>
+      ${ev.artist ? `<p class="modal-artist">${esc(ev.artist)}</p>` : ''}
+      <p class="modal-date">📅 ${dateStr}</p>
+      ${ev.category ? `<p class="modal-meta">Catégorie : ${esc(ev.category)}</p>` : ''}
+      ${ev.price    ? `<p class="modal-meta">Tarif : ${esc(ev.price)}</p>` : ''}
+      ${ev.description ? `<p class="modal-desc">${esc(ev.description)}</p>` : ''}
+      <div class="modal-actions">
+        ${ev.booking_url
+          ? `<a class="modal-book" href="${esc(ev.booking_url)}" target="_blank" rel="noopener">🎟 Réserver des billets</a>`
+          : ''}
+        <button class="btn btn-secondary" onclick="generateICS(${ev.id})">📅 Ajouter à mon agenda</button>
+      </div>
     </div>`;
 
   document.getElementById('modal').classList.remove('hidden');
