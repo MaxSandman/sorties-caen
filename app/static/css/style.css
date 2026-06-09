@@ -645,6 +645,7 @@ html.theme-light .venue-chip-btn:hover {
   height: 100%;
   object-fit: cover;
   object-position: center top;
+  z-index: 1;
 }
 .ev-thumb__fallback {
   position: absolute;
