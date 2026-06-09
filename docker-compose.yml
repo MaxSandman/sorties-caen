@@ -11,6 +11,8 @@ services:
       - NTFY_URL=${NTFY_URL:-https://ntfy.sh}
       - NTFY_TOPIC=${NTFY_TOPIC:-}
       - APP_BASE_URL=${APP_BASE_URL:-http://localhost:8000}
+      - THEATRE_OUEST_EMAIL=${THEATRE_OUEST_EMAIL:-}
+      - THEATRE_OUEST_PASSWORD=${THEATRE_OUEST_PASSWORD:-}
     dns:
       - 8.8.8.8
       - 1.1.1.1
