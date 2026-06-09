@@ -5,11 +5,20 @@ Auth: POST /login {username, password} -> {token}
 """
 
 import os
+import re as _re
+import logging
 import httpx
 from datetime import datetime, date
 from .base import BaseScraper, RawEvent
 
+logger = logging.getLogger(__name__)
+
 CAEN_AREA_ID = "5e4e0cb9-ac24-40a9-8a79-216ec1b0b3f4"
+API_BASE = "https://api.theatrealouest.com"
+SITE_BASE = "https://theatrealouest.com"
+
+# Generic placeholder titles to discard
+_GENERIC_TITLES = {"nouveau spectacle", "coming soon", "à venir", "spectacle à venir"}
 
 _MONTHS_FR = {
     "janvier": 1, "février": 2, "mars": 3, "avril": 4,
@@ -17,7 +26,6 @@ _MONTHS_FR = {
     "septembre": 9, "octobre": 10, "novembre": 11, "décembre": 12,
 }
 
-import re as _re
 
 def _parse_french_date(text: str) -> datetime | None:
     text = text.strip().lower()
@@ -31,8 +39,12 @@ def _parse_french_date(text: str) -> datetime | None:
         return datetime.fromisoformat(text[:10])
     except Exception:
         return None
-API_BASE = "https://api.theatrealouest.com"
-SITE_BASE = "https://theatrealouest.com"
+
+
+def _clean_title(title: str) -> str:
+    """Strip extra whitespace and stray guillemets spacing."""
+    title = _re.sub(r"\s{2,}", " ", title).strip()
+    return title
 
 
 class TheatreOuestScraper(BaseScraper):
@@ -43,19 +55,17 @@ class TheatreOuestScraper(BaseScraper):
         email = os.getenv("THEATRE_OUEST_EMAIL", "")
         password = os.getenv("THEATRE_OUEST_PASSWORD", "")
         if not email or not password:
-            self.logger.warning("THEATRE_OUEST_EMAIL/PASSWORD not set, skipping")
+            logger.warning("THEATRE_OUEST_EMAIL/PASSWORD not set, skipping")
             return []
 
         headers = {"Content-Type": "application/json", "Accept": "application/json"}
         async with httpx.AsyncClient(headers=headers, timeout=30) as client:
-            # Authenticate
             resp = await client.post(f"{API_BASE}/login",
                                      json={"username": email, "password": password})
             resp.raise_for_status()
             token = resp.json()["token"]
             client.headers["Authorization"] = f"Bearer {token}"
 
-            # Fetch all pages of upcoming shows in Caen
             today = date.today().isoformat() + "T00:00:00"
             events: list[RawEvent] = []
             page = 1
@@ -88,17 +98,35 @@ class TheatreOuestScraper(BaseScraper):
         return events
 
     def _parse_show(self, show: dict) -> list[RawEvent]:
-        title = show.get("title", "").strip()
-        if not title:
+        title = _clean_title(show.get("title", ""))
+        if not title or title.lower() in _GENERIC_TITLES:
             return []
 
         show_id = show.get("id", "")
         slug = show.get("slug", "")
-        event_url = f"{SITE_BASE}/caen/spectacle/{slug}" if slug else None
-        image_url = show.get("media")
-        category = show.get("category", {}).get("name", "Spectacle") if show.get("category") else "Spectacle"
 
-        # slots is a dict {"from": "2026-06-09 21:00:00", "to": "..."}
+        # Artist / company name (separate from title in the API)
+        artists_raw = show.get("artists", "") or ""
+        artist = artists_raw.strip() or None
+
+        # Event page URL
+        event_url = f"{SITE_BASE}/caen/spectacle/{slug}" if slug else None
+
+        # Booking URL: Smilebox shows use the purchase sub-path; others share the event page.
+        # The Angular app routes to /caen/spectacle/{slug}/achat for Smilebox ticketing.
+        if show.get("smilebox") and slug:
+            booking_url = f"{SITE_BASE}/caen/spectacle/{slug}/achat"
+        else:
+            booking_url = event_url
+
+        image_url = show.get("media") or None
+
+        category = (
+            show.get("category", {}).get("name", "Spectacle")
+            if show.get("category")
+            else "Spectacle"
+        )
+
         slots = show.get("slots")
         if not slots or not isinstance(slots, dict):
             return []
@@ -116,12 +144,13 @@ class TheatreOuestScraper(BaseScraper):
 
         return [RawEvent(
             title=title,
+            artist=artist,
             venue=self.venue_name,
             venue_key=self.venue_key,
             date=event_date,
             time=time_str,
             event_url=event_url,
-            booking_url=event_url,
+            booking_url=booking_url,
             image_url=image_url,
             category=category,
             external_id=self._make_external_id(show_id or title, event_date.date()),

@@ -64,12 +64,18 @@ def init_db():
 
 def _migrate():
     """Apply additive SQLite migrations without dropping data."""
+    import sqlalchemy as sa
     with engine.connect() as conn:
-        existing = {row[1] for row in conn.execute(
-            __import__("sqlalchemy").text("PRAGMA table_info(events)")
-        )}
-        if "seen" not in existing:
-            conn.execute(__import__("sqlalchemy").text(
-                "ALTER TABLE events ADD COLUMN seen BOOLEAN NOT NULL DEFAULT 0"
-            ))
+        existing = {row[1] for row in conn.execute(sa.text("PRAGMA table_info(events)"))}
+        migrations = [
+            ("seen",      "ALTER TABLE events ADD COLUMN seen BOOLEAN NOT NULL DEFAULT 0"),
+            ("artist",    "ALTER TABLE events ADD COLUMN artist VARCHAR"),
+            ("image_url", "ALTER TABLE events ADD COLUMN image_url VARCHAR"),
+        ]
+        changed = False
+        for col, ddl in migrations:
+            if col not in existing:
+                conn.execute(sa.text(ddl))
+                changed = True
+        if changed:
             conn.commit()

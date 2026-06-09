@@ -72,10 +72,18 @@ class ZenithScraper(BaseScraper):
                     continue
 
                 detail_el = card.select_one("a.button-dark")
-                event_url = detail_el["href"] if detail_el else None
+                _detail_href = detail_el["href"] if detail_el else None
+                event_url = (
+                    _detail_href if _detail_href and _detail_href.startswith("http")
+                    else (self.base_url + _detail_href if _detail_href else None)
+                )
 
                 booking_el = card.select_one("a.button-white")
-                booking_url = booking_el["href"] if booking_el else event_url
+                _book_href = booking_el["href"] if booking_el else None
+                if _book_href:
+                    booking_url = _book_href if _book_href.startswith("http") else self.base_url + _book_href
+                else:
+                    booking_url = event_url
 
                 img_el = card.select_one("div.figure img")
                 image_url = None

@@ -38,6 +38,7 @@ def _upsert_events(db: Session, raw_events: list[RawEvent], venue_key: str) -> t
             existing.booking_url = raw.booking_url or existing.booking_url
             existing.event_url = raw.event_url or existing.event_url
             existing.image_url = raw.image_url or existing.image_url
+            existing.artist = raw.artist or existing.artist
             existing.price = raw.price or existing.price
             existing.last_updated = datetime.utcnow()
         else:
