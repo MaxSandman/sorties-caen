@@ -919,21 +919,31 @@ html.theme-light .ev-thumb__fallback {
   color: var(--text); width: 29px; height: 29px;
   border-radius: 7px; cursor: pointer; font-size: 0.82rem;
 }
+.modal-layout {
+  display: flex;
+  gap: 18px;
+  align-items: flex-start;
+}
+
 .modal-image {
-  margin: -26px -26px 18px;
-  border-radius: 14px 14px 0 0;
+  flex-shrink: 0;
+  width: 140px;
+  border-radius: 8px;
   overflow: hidden;
-  max-height: 260px;
+  box-shadow: 0 4px 14px var(--shadow);
 }
 .modal-image img {
   width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center top;
   display: block;
+  object-fit: cover;
 }
 
-.modal-info { display: flex; flex-direction: column; gap: 0; }
+.modal-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0; }
+
+@media (max-width: 500px) {
+  .modal-layout { flex-direction: column; }
+  .modal-image { width: 100px; }
+}
 
 .modal-venue-tag {
   display: inline-block;
