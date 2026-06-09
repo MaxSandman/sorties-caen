@@ -119,6 +119,7 @@ class TheatreOuestScraper(BaseScraper):
         booking_url = f"{SITE_BASE}/caen/spectacle/reserver-places/{slug}" if slug else event_url
 
         media = show.get("media")
+        logger.debug("[theatre_ouest] show=%s media type=%s value=%r", title[:40], type(media).__name__, media)
         if isinstance(media, dict):
             image_url = media.get("url") or media.get("src") or media.get("path") or None
         elif isinstance(media, str) and media.startswith("http"):
@@ -127,6 +128,7 @@ class TheatreOuestScraper(BaseScraper):
             image_url = f"{API_BASE}/{media.lstrip('/')}"
         else:
             image_url = None
+        logger.debug("[theatre_ouest] show=%s image_url=%r", title[:40], image_url)
 
         category = (
             show.get("category", {}).get("name", "Spectacle")
