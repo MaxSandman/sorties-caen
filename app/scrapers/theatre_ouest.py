@@ -115,12 +115,8 @@ class TheatreOuestScraper(BaseScraper):
         # Event page URL
         event_url = f"{SITE_BASE}/caen/spectacle/{slug}" if slug else None
 
-        # Booking URL: Smilebox shows use the purchase sub-path; others share the event page.
-        # The Angular app routes to /caen/spectacle/{slug}/achat for Smilebox ticketing.
-        if show.get("smilebox") and slug:
-            booking_url = f"{SITE_BASE}/caen/spectacle/{slug}/achat"
-        else:
-            booking_url = event_url
+        # Booking URL: Angular router uses /reserver-places/{slug} for ticketing.
+        booking_url = f"{SITE_BASE}/caen/spectacle/reserver-places/{slug}" if slug else event_url
 
         image_url = show.get("media") or None
 
