@@ -57,7 +57,7 @@ class BaseScraper(ABC):
                 )
             )
             page = await context.new_page()
-            await page.goto(url, wait_until="load", timeout=30000)
+            await page.goto(url, wait_until="load", timeout=60000)
             if wait_for:
                 try:
                     await page.wait_for_selector(wait_for, timeout=10000)
