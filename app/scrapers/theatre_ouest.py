@@ -82,6 +82,9 @@ class TheatreOuestScraper(BaseScraper):
                     f"{API_BASE}/shows/areas/{CAEN_AREA_ID}",
                     params=params,
                 )
+                if resp.status_code >= 500:
+                    logger.warning("API returned %s on page %d, stopping pagination", resp.status_code, page)
+                    break
                 resp.raise_for_status()
                 data = resp.json()
 
