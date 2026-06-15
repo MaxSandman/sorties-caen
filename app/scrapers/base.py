@@ -1,11 +1,14 @@
-import asyncio
+import hashlib
 import logging
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional
+from typing import ClassVar, Optional
 
 logger = logging.getLogger(__name__)
+
+# Auto-registry: populated by __init_subclass__ on every concrete scraper
+_SCRAPER_REGISTRY: dict[str, type["BaseScraper"]] = {}
 
 
 @dataclass
@@ -24,11 +27,25 @@ class RawEvent:
     category: Optional[str] = None
     external_id: Optional[str] = None
 
+    def dedup_key(self) -> str:
+        """Stable key for deduplication: external_id when available, else hash of core fields."""
+        if self.external_id:
+            return self.external_id
+        raw = f"{self.venue_key}|{self.title.lower().strip()}|{self.date.date()}"
+        return hashlib.sha1(raw.encode()).hexdigest()
+
 
 class BaseScraper(ABC):
     venue_name: str = ""
     venue_key: str = ""
     base_url: str = ""
+    # Set to False in subclasses that only need requests + BeautifulSoup
+    use_playwright: ClassVar[bool] = True
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        if cls.venue_key:
+            _SCRAPER_REGISTRY[cls.venue_key] = cls
 
     async def scrape(self) -> list[RawEvent]:
         try:
@@ -42,6 +59,25 @@ class BaseScraper(ABC):
     @abstractmethod
     async def _scrape(self) -> list[RawEvent]:
         pass
+
+    async def _get_html(self, url: str, wait_for: Optional[str] = None) -> str:
+        """Dispatch to Playwright or requests depending on use_playwright."""
+        if self.use_playwright:
+            return await self._get_page(url, wait_for)
+        return self._get_page_requests(url)
+
+    def _get_page_requests(self, url: str) -> str:
+        import requests as req
+        headers = {
+            "User-Agent": (
+                "Mozilla/5.0 (X11; Linux x86_64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/120.0.0.0 Safari/537.36"
+            )
+        }
+        resp = req.get(url, headers=headers, timeout=20)
+        resp.raise_for_status()
+        return resp.text
 
     async def _get_page(self, url: str, wait_for: Optional[str] = None) -> str:
         """Fetch a page with Playwright, optionally waiting for a CSS selector."""

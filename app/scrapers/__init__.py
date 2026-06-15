@@ -1,15 +1,5 @@
-from .theatre_ouest import TheatreOuestScraper
-from .zenith import ZenithScraper
-from .cargo import CargoScraper
-from .bbc import BBCScraper
-from .palais_sports import PalaisSportsScraper
-from .caen_evenements import CaenEvenementsScraper
+# Import all scraper modules so their classes register themselves via __init_subclass__
+from . import theatre_ouest, zenith, cargo, bbc, palais_sports, caen_evenements, demo  # noqa: F401
+from .base import _SCRAPER_REGISTRY
 
-ALL_SCRAPERS = [
-    TheatreOuestScraper,
-    ZenithScraper,
-    CargoScraper,
-    BBCScraper,
-    PalaisSportsScraper,
-    CaenEvenementsScraper,
-]
+ALL_SCRAPERS = list(_SCRAPER_REGISTRY.values())
