@@ -193,7 +193,46 @@
         <h2 class="section-title">Toutes les sorties</h2>
         <span class="section-meta" id="all-meta"></span>
       </div>
+
+      <div class="all-filters">
+        <div class="search-bar">
+          <div class="search-wrap">
+            <svg class="search-ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <input type="search" id="all-search" class="search-input" placeholder="Rechercher un artiste, un lieu…" autocomplete="off" />
+          </div>
+          <div class="search-selects">
+            <div class="sel-wrap">
+              <select id="all-filter-venue" class="sel">
+                <option value="">Toutes les salles</option>
+              </select>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
+            </div>
+            <div class="sel-wrap">
+              <select id="all-sort" class="sel">
+                <option value="date">Date</option>
+                <option value="added">Date d'ajout</option>
+              </select>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
+            </div>
+            <label class="toggle-free">
+              <input type="checkbox" id="all-filter-free" />
+              <span>Gratuit</span>
+            </label>
+          </div>
+        </div>
+        <div class="date-range">
+          <label class="date-range-label">Du</label>
+          <input type="date" id="all-date-from" class="date-input" />
+          <label class="date-range-label">Au</label>
+          <input type="date" id="all-date-to" class="date-input" />
+        </div>
+        <div class="category-pills" id="all-cat-pills">
+          <button class="pill active" data-cat="">● Tout</button>
+        </div>
+      </div>
+
       <div class="list-rows" id="all-rows"></div>
+      <p class="empty-state hidden" id="all-empty">Aucun événement pour ces critères.</p>
       <button class="btn-more hidden" id="btn-more-all">Charger plus ∨</button>
     </div>
 

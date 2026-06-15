@@ -563,32 +563,110 @@ function initCalendar() {
 }
 
 // ── ALL SORTIES page ───────────────────────────────────────────
-function buildAllParams(overrides = {}) {
-  const params = new URLSearchParams({ sort: 'date', page: state.allPage, page_size: 30 });
-  if (state.cat)    params.set('category', state.cat);
-  if (state.venue)  params.set('venue', state.venue);
-  if (state.search) params.set('search', state.search);
-  Object.entries(overrides).forEach(([k,v]) => params.set(k, v));
+const allState = { cat: '', venue: '', search: '', free: false, dateFrom: '', dateTo: '', sort: 'date' };
+
+function buildAllParams() {
+  const params = new URLSearchParams({ sort: allState.sort, page: state.allPage, page_size: 30 });
+  if (allState.cat)      params.set('category', allState.cat);
+  if (allState.venue)    params.set('venue', allState.venue);
+  if (allState.search)   params.set('search', allState.search);
+  if (allState.free)     params.set('free', '1');
+  if (allState.dateFrom) params.set('date_from', allState.dateFrom);
+  if (allState.dateTo)   params.set('date_to', allState.dateTo);
   return params;
 }
 
-async function loadAllPage(overrides = {}) {
+function allSkeletons(n = 8) {
+  return Array(n).fill('<div class="skeleton-row"></div>').join('');
+}
+
+async function loadAllPage() {
   state.allPage = 1;
-  const wrap = document.getElementById('all-rows');
-  const meta = document.getElementById('all-meta');
-  wrap.innerHTML = '';
+  const wrap  = document.getElementById('all-rows');
+  const meta  = document.getElementById('all-meta');
+  const empty = document.getElementById('all-empty');
+  wrap.innerHTML = allSkeletons();
+  empty.classList.add('hidden');
   try {
-    const data = await api('/events?' + buildAllParams(overrides));
+    const data  = await api('/events?' + buildAllParams());
     const items = data.items ?? [];
     const total = data.total ?? items.length;
     meta.textContent = `${total} événement${total !== 1 ? 's' : ''}`;
-    wrap.innerHTML = items.map(buildRow).join('');
+    wrap.innerHTML = items.length ? items.map(buildRow).join('') : '';
+    empty.classList.toggle('hidden', items.length > 0);
     const btn = document.getElementById('btn-more-all');
     btn.classList.toggle('hidden', (data.pages ?? 1) <= 1);
   } catch {
-    wrap.innerHTML = '<p class="empty-state">Impossible de charger.</p>';
+    wrap.innerHTML = '';
+    empty.textContent = 'Impossible de charger les événements.';
+    empty.classList.remove('hidden');
   }
 }
+
+async function populateAllFilters() {
+  try {
+    const [venues, cats] = await Promise.all([api('/venues'), api('/categories')]);
+    const vSel = document.getElementById('all-filter-venue');
+    venues.forEach(v => {
+      const o = document.createElement('option');
+      o.value = v.key; o.textContent = `${v.name} (${v.count})`;
+      vSel.appendChild(o);
+    });
+    const pillWrap = document.getElementById('all-cat-pills');
+    cats.forEach(c => {
+      const btn = document.createElement('button');
+      btn.className = 'pill'; btn.dataset.cat = c.name;
+      const col = catColor(c.name);
+      btn.innerHTML = `<span style="color:${col}">●</span> ${c.name}`;
+      pillWrap.appendChild(btn);
+    });
+  } catch {}
+}
+
+function applyAllPillStyles() {
+  document.querySelectorAll('#all-cat-pills .pill').forEach(p => {
+    const active = p.classList.contains('active');
+    const cat = p.dataset.cat;
+    if (active && cat) {
+      const c = catColor(cat);
+      p.style.cssText = `background:${c}28;border-color:${c}55;color:${c}`;
+    } else if (active) {
+      p.style.cssText = 'background:var(--accent);border-color:transparent;color:white';
+    } else {
+      p.style.cssText = '';
+    }
+  });
+}
+
+document.getElementById('all-cat-pills').addEventListener('click', e => {
+  const btn = e.target.closest('.pill');
+  if (!btn) return;
+  allState.cat = btn.dataset.cat ?? '';
+  document.querySelectorAll('#all-cat-pills .pill').forEach(p => p.classList.toggle('active', p === btn));
+  applyAllPillStyles();
+  loadAllPage();
+});
+
+let allSearchTimer;
+document.getElementById('all-search').addEventListener('input', function() {
+  clearTimeout(allSearchTimer);
+  allSearchTimer = setTimeout(() => { allState.search = this.value.trim(); loadAllPage(); }, 280);
+});
+document.getElementById('all-filter-venue').addEventListener('change', function() {
+  allState.venue = this.value; loadAllPage();
+});
+document.getElementById('all-sort').addEventListener('change', function() {
+  allState.sort = this.value; loadAllPage();
+});
+document.getElementById('all-filter-free').addEventListener('change', function() {
+  allState.free = this.checked; loadAllPage();
+});
+document.getElementById('all-date-from').addEventListener('change', function() {
+  allState.dateFrom = this.value; loadAllPage();
+});
+document.getElementById('all-date-to').addEventListener('change', function() {
+  allState.dateTo = this.value; loadAllPage();
+});
 
 document.getElementById('btn-more-all').addEventListener('click', async function() {
   state.allPage++;
@@ -599,9 +677,50 @@ document.getElementById('btn-more-all').addEventListener('click', async function
 });
 
 // ── EVENT DETAIL page ──────────────────────────────────────────
+function generateIcs(ev) {
+  const d = new Date(ev.date);
+  const pad = n => String(n).padStart(2, '0');
+  const fmt = d => `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
+  const end = new Date(d.getTime() + 2 * 3600 * 1000);
+  const esc = s => (s || '').replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,').replace(/\n/g,'\\n');
+  const uid = `${ev.id}-sorties-caen@caen.fr`;
+  const lines = [
+    'BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Sorties Caen//FR',
+    'BEGIN:VEVENT',
+    `UID:${uid}`,
+    `DTSTAMP:${fmt(new Date())}`,
+    `DTSTART:${fmt(d)}`,
+    `DTEND:${fmt(end)}`,
+    `SUMMARY:${esc(ev.title)}`,
+    `LOCATION:${esc(ev.venue)}`,
+    ev.description ? `DESCRIPTION:${esc(ev.description)}` : null,
+    ev.event_url   ? `URL:${ev.event_url}` : (ev.booking_url ? `URL:${ev.booking_url}` : null),
+    'END:VEVENT','END:VCALENDAR'
+  ].filter(Boolean).join('\r\n');
+
+  const blob = new Blob([lines], { type: 'text/calendar' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${ev.title.replace(/[^a-zA-Z0-9]/g, '_').slice(0, 40)}.ics`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+
 async function loadEvent(id) {
   const wrap = document.getElementById('event-detail');
-  wrap.innerHTML = '<p class="empty-state">Chargement…</p>';
+  wrap.innerHTML = `
+    <div class="detail-card skeleton-detail">
+      <div class="skeleton detail-img-skel"></div>
+      <div class="detail-body">
+        <div class="skeleton" style="width:80px;height:22px;border-radius:99px;margin-bottom:14px"></div>
+        <div class="skeleton" style="width:70%;height:32px;margin-bottom:10px"></div>
+        <div class="skeleton" style="width:50%;height:18px;margin-bottom:8px"></div>
+        <div class="skeleton" style="width:40%;height:18px;margin-bottom:24px"></div>
+        <div class="skeleton" style="width:100%;height:80px;margin-bottom:8px"></div>
+        <div class="skeleton" style="width:100%;height:60px;margin-bottom:24px"></div>
+        <div class="skeleton" style="width:160px;height:44px;border-radius:11px"></div>
+      </div>
+    </div>`;
   try {
     const ev = await api(`/events/${id}`);
     const color = catColor(ev.category);
@@ -609,8 +728,8 @@ async function loadEvent(id) {
     wrap.innerHTML = `
     <div class="detail-card">
       ${ev.image_url
-        ? `<img class="detail-img" src="${ev.image_url}" alt="${ev.title}">`
-        : `<div class="detail-img-fallback" style="background:linear-gradient(135deg,${color}44,${color}11)"></div>`}
+        ? `<img class="detail-img" src="${ev.image_url}" alt="${ev.title}" loading="lazy">`
+        : `<div class="detail-img-fallback" style="background:linear-gradient(135deg,${color}55 0%,${color}18 100%)"><span class="detail-img-cat">${ev.category || ''}</span></div>`}
       <div class="detail-body">
         <div class="detail-badges">
           ${ev.category ? badgeCat(ev.category) : ''}
@@ -620,16 +739,23 @@ async function loadEvent(id) {
         <div class="detail-metas">
           <div class="detail-meta">${ICO_CAL} <strong>${fmtDateTime(ev.date)}</strong></div>
           <div class="detail-meta">${ICO_PIN} ${ev.venue}</div>
-          ${price ? `<div class="detail-meta">🎟 <strong>${price}</strong></div>` : ''}
+          ${price ? `<div class="detail-meta"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v12M9 9h4.5a2.5 2.5 0 0 1 0 5H9"/></svg> <strong class="${price === 'Gratuit' ? 'is-free' : ''}">${price}</strong></div>` : ''}
         </div>
         ${ev.description ? `<p class="detail-desc">${ev.description}</p>` : ''}
-        ${ev.booking_url
-          ? `<a class="btn-cta" href="${ev.booking_url}" target="_blank" rel="noopener">Réserver ${ICO_ARR}</a>`
-          : ''}
+        <div class="detail-actions">
+          ${ev.booking_url
+            ? `<a class="btn-cta" href="${ev.booking_url}" target="_blank" rel="noopener">Réserver des billets ${ICO_ARR}</a>`
+            : ''}
+          <button class="btn-cta btn-cta-secondary" id="btn-ics" data-id="${ev.id}">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            Ajouter à mon agenda
+          </button>
+        </div>
       </div>
     </div>`;
+    document.getElementById('btn-ics').addEventListener('click', () => generateIcs(ev));
   } catch {
-    wrap.innerHTML = '<p class="empty-state">Événement introuvable.</p>';
+    wrap.innerHTML = '<p class="empty-state">Événement introuvable ou supprimé.</p>';
   }
 }
 
@@ -687,7 +813,7 @@ window.addEventListener('hashchange', route);
 // ── Init ────────────────────────────────────────────────────────
 (async function init() {
   initTheme();
-  await Promise.all([refreshNavbar(), populateVenueSelect(), populateCategoryPills()]);
+  await Promise.all([refreshNavbar(), populateVenueSelect(), populateCategoryPills(), populateAllFilters()]);
   // Activate "Tout" pill
   const allPill = document.querySelector('#category-pills .pill[data-cat=""]');
   if (allPill) { allPill.classList.add('active'); applyPillStyles(); }

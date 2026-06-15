@@ -632,8 +632,8 @@ input, select { font: inherit; }
   background: var(--surface); border: 1px solid var(--border);
   border-radius: var(--radius-card); overflow: hidden; max-width: 720px;
 }
-.detail-img { width: 100%; height: 280px; object-fit: cover; display: block; }
-.detail-img-fallback { width: 100%; height: 140px; }
+.detail-img { width: 100%; height: 340px; object-fit: cover; display: block; }
+.detail-img-fallback { width: 100%; height: 260px; position: relative; }
 .detail-body { padding: 28px; }
 .detail-badges { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
 .detail-title {
@@ -649,13 +649,25 @@ input, select { font: inherit; }
 .detail-desc {
   font-size: 14px; color: var(--text-muted); line-height: 1.7; margin-bottom: 24px;
 }
+.detail-actions {
+  display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px;
+}
 .btn-cta {
   display: inline-flex; align-items: center; gap: 6px;
-  padding: 12px 24px; background: var(--accent); color: white;
+  padding: 12px 22px; background: var(--accent); color: white;
   border-radius: var(--radius-btn); font-weight: 700; font-size: 14px;
-  transition: opacity .15s;
+  border: none; cursor: pointer; transition: opacity .15s;
 }
 .btn-cta:hover { opacity: .85; }
+.btn-cta-secondary {
+  background: var(--surface-2); color: var(--text); border: 1px solid var(--border);
+}
+.btn-cta-secondary:hover { background: var(--border); opacity: 1; }
+.detail-img-cat {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-family: 'Bricolage Grotesque', sans-serif; font-size: clamp(28px,6vw,56px); font-weight: 800;
+  text-transform: capitalize; color: white; opacity: .35; letter-spacing: -.02em;
+}
 
 /* ── Shared buttons ── */
 .btn {
@@ -676,6 +688,45 @@ input, select { font: inherit; }
 /* ── Misc ── */
 .empty-state { text-align: center; padding: 40px; color: var(--text-muted); font-size: 14px; }
 @keyframes shimmer { to { background-position: -200% 0; } }
+.is-free { color: var(--cat-enfants); }
+
+/* ── Skeletons ── */
+.skeleton {
+  display: block; border-radius: 8px;
+  background: linear-gradient(90deg, var(--surface) 25%, var(--surface-2) 50%, var(--surface) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+}
+.skeleton-row {
+  height: 56px; border-radius: 12px; margin-bottom: 8px;
+  background: linear-gradient(90deg, var(--surface) 25%, var(--surface-2) 50%, var(--surface) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+}
+.detail-img-skel { width: 100%; height: 380px; border-radius: 0; }
+
+/* ── Sorties filters ── */
+.all-filters { display: flex; flex-direction: column; gap: 14px; margin-bottom: 20px; }
+.date-range {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+.date-range-label { font-size: 12px; font-weight: 600; color: var(--text-muted); }
+.date-input {
+  padding: 8px 12px; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-btn); color: var(--text); font-family: inherit; font-size: 13px;
+  cursor: pointer;
+}
+.date-input:focus { outline: none; border-color: var(--accent); }
+.toggle-free {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 8px 14px; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-pill); font-size: 13px; font-weight: 600;
+  color: var(--text-muted); cursor: pointer; transition: all .15s; user-select: none;
+}
+.toggle-free:has(input:checked) {
+  background: var(--cat-enfants)18; border-color: var(--cat-enfants)55; color: var(--cat-enfants);
+}
+.toggle-free input { display: none; }
 
 /* ── Responsive ── */
 @media (max-width: 768px) {
@@ -688,6 +739,12 @@ input, select { font: inherit; }
   .search-selects { display: none; }
   .sort-toggle { display: none; }
   .new-banner-cta { display: none; }
+  .date-range { display: none; }
+  .detail-card { flex-direction: column; }
+  .detail-img, .detail-img-fallback { height: 220px; border-radius: var(--radius-card) var(--radius-card) 0 0; }
+  .detail-body { padding: 20px 16px; }
+  .detail-actions { flex-direction: column; }
+  .btn-cta { justify-content: center; }
 
   /* Calendrier : masquer la grille, afficher la liste */
   .cal-grid-wrap { display: none; }
