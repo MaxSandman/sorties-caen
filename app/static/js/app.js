@@ -158,14 +158,116 @@ async function refreshNavbar() {
     const s = await api('/stats');
     const el = document.getElementById('last-update');
     if (s.last_scrape_at) el.textContent = fmtScrapeAge(s.last_scrape_at);
-    const badge = document.getElementById('bell-badge');
-    if (s.count_new_7d > 0) {
-      badge.textContent = s.count_new_7d;
+    const btn = document.getElementById('btn-refresh');
+    if (btn) btn.classList.remove('hidden');
+  } catch {}
+  await refreshBellBadge();
+}
+
+// ── Bell dropdown ──────────────────────────────────────────────
+let bellOpen = false;
+
+async function refreshBellBadge() {
+  try {
+    const lastSeen = localStorage.getItem('bellLastSeen');
+    const params   = lastSeen ? '?since=' + encodeURIComponent(lastSeen) : '?days=30';
+    const items    = await api('/events/new' + params);
+    const badge    = document.getElementById('bell-badge');
+    if (items.length > 0) {
+      badge.textContent = items.length > 99 ? '99+' : items.length;
       badge.classList.remove('hidden');
+    } else {
+      badge.classList.add('hidden');
     }
   } catch {}
 }
-document.getElementById('btn-bell').addEventListener('click', () => navigate('radar'));
+
+async function loadBellDropdown() {
+  const list = document.getElementById('bell-list');
+  list.innerHTML = '<p class="empty-state" style="padding:20px">Chargement…</p>';
+  try {
+    const items = await api('/events/new?days=30');
+    if (items.length === 0) {
+      list.innerHTML = '<p class="empty-state" style="padding:20px">Aucune nouveauté récente.</p>';
+      return;
+    }
+    const lastSeen = localStorage.getItem('bellLastSeen');
+    list.innerHTML = items.map(ev => {
+      const isUnseen = !lastSeen || new Date(ev.first_seen) > new Date(lastSeen);
+      const color    = catColor(ev.category);
+      const price    = fmtPrice(ev.price);
+      return `<div class="bell-item${isUnseen ? ' bell-item-new' : ''}" data-id="${ev.id}">
+        <span class="bell-item-bar" style="background:${color}"></span>
+        <div class="bell-item-info">
+          <div class="bell-item-title">${ev.title}</div>
+          <div class="bell-item-meta">${ICO_CAL} ${fmtDate(ev.date)} · ${ev.venue}</div>
+        </div>
+        <div class="bell-item-right">
+          ${price ? `<span class="bell-item-price${price === 'Gratuit' ? ' is-free' : ''}">${price}</span>` : ''}
+          ${isUnseen ? '<span class="bell-item-dot"></span>' : ''}
+        </div>
+      </div>`;
+    }).join('');
+  } catch {
+    list.innerHTML = '<p class="empty-state" style="padding:20px">Impossible de charger.</p>';
+  }
+}
+
+function openBellDropdown() {
+  const dropdown = document.getElementById('bell-dropdown');
+  const btn      = document.getElementById('btn-bell');
+  bellOpen = true;
+  dropdown.classList.remove('hidden');
+  btn.setAttribute('aria-expanded', 'true');
+  loadBellDropdown();
+}
+
+function closeBellDropdown() {
+  const dropdown = document.getElementById('bell-dropdown');
+  const btn      = document.getElementById('btn-bell');
+  bellOpen = false;
+  dropdown.classList.add('hidden');
+  btn.setAttribute('aria-expanded', 'false');
+}
+
+function markBellSeen() {
+  localStorage.setItem('bellLastSeen', new Date().toISOString());
+  document.getElementById('bell-badge').classList.add('hidden');
+  closeBellDropdown();
+  // Re-render items without the unseen dots
+  loadBellDropdown().then(() => openBellDropdown());
+}
+
+document.getElementById('btn-bell').addEventListener('click', e => {
+  e.stopPropagation();
+  bellOpen ? closeBellDropdown() : openBellDropdown();
+});
+document.getElementById('bell-mark-seen').addEventListener('click', e => {
+  e.stopPropagation();
+  markBellSeen();
+});
+document.getElementById('bell-list').addEventListener('click', e => {
+  const item = e.target.closest('[data-id]');
+  if (item) { closeBellDropdown(); navigate('event/' + item.dataset.id); }
+});
+document.addEventListener('click', e => {
+  if (bellOpen && !e.target.closest('#bell-wrap')) closeBellDropdown();
+});
+
+// ── Refresh button ─────────────────────────────────────────────
+document.getElementById('btn-refresh').addEventListener('click', async function() {
+  this.classList.add('spinning');
+  this.disabled = true;
+  try {
+    await fetch('/api/scrape/run', { method: 'POST' });
+  } catch {}
+  await refreshNavbar();
+  const { page } = getRoute();
+  if (page === 'radar') await loadRadar();
+  else if (page === 'sorties') await loadAllPage();
+  this.classList.remove('spinning');
+  this.disabled = false;
+});
 
 // ── Venue select ──────────────────────────────────────────────
 async function populateVenueSelect() {
@@ -761,6 +863,32 @@ async function loadEvent(id) {
 
 document.getElementById('btn-back').addEventListener('click', () => history.back());
 
+// ── Mobile hamburger ───────────────────────────────────────────
+const hamburger = document.getElementById('btn-hamburger');
+const mobileNav = document.getElementById('mobile-nav-overlay');
+
+function openMobileNav() {
+  mobileNav.classList.remove('hidden');
+  mobileNav.setAttribute('aria-hidden', 'false');
+  hamburger.setAttribute('aria-expanded', 'true');
+  hamburger.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeMobileNav() {
+  mobileNav.classList.add('hidden');
+  mobileNav.setAttribute('aria-hidden', 'true');
+  hamburger.setAttribute('aria-expanded', 'false');
+  hamburger.classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+hamburger.addEventListener('click', () =>
+  mobileNav.classList.contains('hidden') ? openMobileNav() : closeMobileNav()
+);
+mobileNav.addEventListener('click', e => {
+  if (e.target.closest('.mobile-nav-link') || e.target === mobileNav) closeMobileNav();
+});
+
 // ── Router ─────────────────────────────────────────────────────
 const PAGES = ['radar','calendrier','sorties','event'];
 let  prevPage = null;
@@ -772,7 +900,7 @@ function getRoute() {
 }
 function navigate(path) { location.hash = '#/' + path; }
 function setActiveNav(page) {
-  document.querySelectorAll('.nav-link').forEach(el =>
+  document.querySelectorAll('.nav-link, .mobile-nav-link').forEach(el =>
     el.classList.toggle('active', el.dataset.route === page)
   );
 }
@@ -784,6 +912,7 @@ document.addEventListener('click', e => {
 });
 
 async function route() {
+  closeMobileNav();
   const { page, param } = getRoute();
   document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
   setActiveNav(page);

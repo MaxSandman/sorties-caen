@@ -197,8 +197,8 @@ input, select { font: inherit; }
   align-items: center;
   gap: 16px;
   padding: 20px 24px;
-  background: linear-gradient(135deg, #1e1b4b 0%, #1e1040 100%);
-  border: 1px solid #3B82F630;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 15%, var(--surface)) 0%, var(--surface) 100%);
+  border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
   border-radius: var(--radius-card);
 }
 .new-banner-icon {
@@ -357,7 +357,7 @@ input, select { font: inherit; }
 }
 .card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 10px 36px #0007;
+  box-shadow: 0 10px 36px color-mix(in srgb, var(--bg) 30%, rgba(0,0,0,.25));
   border-color: var(--accent)66;
 }
 .card-visual {
@@ -685,10 +685,128 @@ input, select { font: inherit; }
 }
 .btn-more:hover { background: var(--surface-2); }
 
+/* ── Focus visible (accessibility) ── */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+button:focus:not(:focus-visible),
+a:focus:not(:focus-visible) { outline: none; }
+
 /* ── Misc ── */
 .empty-state { text-align: center; padding: 40px; color: var(--text-muted); font-size: 14px; }
 @keyframes shimmer { to { background-position: -200% 0; } }
+@keyframes spin { to { transform: rotate(360deg); } }
 .is-free { color: var(--cat-enfants); }
+
+/* ── Refresh button ── */
+.btn-refresh {
+  width: 34px; height: 34px; border-radius: 50%;
+  background: var(--surface); border: 1px solid var(--border);
+  display: grid; place-items: center; color: var(--text-muted);
+  transition: color .15s, background .15s;
+}
+.btn-refresh:hover { color: var(--text); background: var(--surface-2); }
+.btn-refresh:disabled { opacity: .5; cursor: not-allowed; }
+.btn-refresh.spinning .refresh-ico { animation: spin .8s linear infinite; }
+
+/* ── Bell dropdown ── */
+.bell-wrap { position: relative; }
+.bell-dropdown {
+  position: absolute; top: calc(100% + 10px); right: 0;
+  width: 360px; max-height: 480px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: 0 16px 48px color-mix(in srgb, var(--bg) 40%, rgba(0,0,0,.3));
+  display: flex; flex-direction: column;
+  z-index: 200;
+  overflow: hidden;
+}
+.bell-dropdown.hidden { display: none; }
+.bell-dropdown-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.bell-dropdown-title {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 15px; font-weight: 700;
+}
+.bell-mark-seen {
+  font-size: 12px; font-weight: 600; color: var(--accent);
+  padding: 4px 8px; border-radius: 6px;
+  transition: background .15s;
+}
+.bell-mark-seen:hover { background: var(--accent)18; }
+.bell-list {
+  overflow-y: auto; flex: 1;
+}
+.bell-item {
+  display: grid; grid-template-columns: 3px 1fr auto;
+  align-items: center; gap: 12px;
+  padding: 12px 16px;
+  cursor: pointer; border-bottom: 1px solid var(--border);
+  transition: background .15s;
+}
+.bell-item:last-child { border-bottom: none; }
+.bell-item:hover { background: var(--surface-2); }
+.bell-item-new { background: color-mix(in srgb, var(--accent) 5%, transparent); }
+.bell-item-bar { width: 3px; height: 32px; border-radius: 2px; flex-shrink: 0; }
+.bell-item-info { min-width: 0; }
+.bell-item-title {
+  font-weight: 700; font-size: 13.5px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.bell-item-meta {
+  font-size: 12px; color: var(--text-muted); margin-top: 2px;
+  display: flex; align-items: center; gap: 4px;
+}
+.bell-item-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.bell-item-price { font-size: 12.5px; font-weight: 700; }
+.bell-item-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--accent); flex-shrink: 0;
+}
+
+/* ── Hamburger ── */
+.btn-hamburger {
+  display: none;
+  flex-direction: column; justify-content: center;
+  gap: 5px; padding: 8px;
+  width: 40px; height: 40px;
+  border-radius: 8px;
+  background: var(--surface); border: 1px solid var(--border);
+  cursor: pointer; transition: background .15s;
+}
+.btn-hamburger:hover { background: var(--surface-2); }
+.hamburger-bar {
+  display: block; height: 2px; border-radius: 2px;
+  background: var(--text); transition: transform .2s, opacity .2s;
+}
+.btn-hamburger.open .hamburger-bar:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+.btn-hamburger.open .hamburger-bar:nth-child(2) { opacity: 0; }
+.btn-hamburger.open .hamburger-bar:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+/* ── Mobile nav overlay ── */
+.mobile-nav-overlay {
+  position: fixed; inset: 0; top: var(--navbar-h);
+  background: var(--bg); z-index: 90;
+  padding: 24px;
+  display: flex; flex-direction: column;
+}
+.mobile-nav-overlay.hidden { display: none; }
+.mobile-nav { display: flex; flex-direction: column; gap: 4px; }
+.mobile-nav-link {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 24px; font-weight: 800;
+  padding: 14px 8px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted); transition: color .15s;
+  min-height: 64px; display: flex; align-items: center;
+}
+.mobile-nav-link:hover, .mobile-nav-link.active { color: var(--text); }
 
 /* ── Skeletons ── */
 .skeleton {
@@ -731,27 +849,53 @@ input, select { font: inherit; }
 /* ── Responsive ── */
 @media (max-width: 768px) {
   .container { padding-inline: 14px; }
-  .navbar-nav .nav-link:not(.active) { display: none; }
-  .cards-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
-  .list-row { grid-template-columns: 90px 1fr auto; }
-  .row-badge { display: none; }
-  .cal-legend { display: none; }
+
+  /* Navbar: hide desktop nav, show hamburger; ensure min touch targets */
+  .navbar-nav { display: none; }
+  .btn-hamburger { display: flex; }
+  .navbar-update { display: none; }
+  .btn-bell, .btn-theme, .btn-refresh, .btn-hamburger { min-width: 40px; min-height: 40px; }
+
+  /* Bell dropdown: full-width on mobile */
+  .bell-dropdown { width: calc(100vw - 28px); right: -14px; }
+
+  /* Cards: 1-column on small screens */
+  .cards-grid { grid-template-columns: 1fr; }
+
+  /* List rows: simpler layout */
+  .list-row { grid-template-columns: 90px 1fr; gap: 10px; padding: 12px; min-height: 56px; }
+  .row-badge, .row-right { display: none; }
+
+  /* Filters: hide advanced on mobile */
   .search-selects { display: none; }
   .sort-toggle { display: none; }
-  .new-banner-cta { display: none; }
   .date-range { display: none; }
-  .detail-card { flex-direction: column; }
-  .detail-img, .detail-img-fallback { height: 220px; border-radius: var(--radius-card) var(--radius-card) 0 0; }
-  .detail-body { padding: 20px 16px; }
-  .detail-actions { flex-direction: column; }
-  .btn-cta { justify-content: center; }
+  .new-banner-cta { display: none; }
 
-  /* Calendrier : masquer la grille, afficher la liste */
+  /* All sorties: show pills but compact */
+  .all-filters .search-selects { display: none; }
+  #all-cat-pills { gap: 6px; }
+  #all-cat-pills .pill { font-size: 11.5px; padding: 5px 10px; }
+
+  /* Calendar: mobile list view */
+  .cal-legend { display: none; }
   .cal-grid-wrap { display: none; }
   .cal-body.panel-open { grid-template-columns: 1fr; }
   .cal-day-panel { position: static; max-height: none; }
   .cal-mobile-list { display: block; }
-  #cal-day-events .list-row { grid-template-columns: 90px 1fr auto; }
-  #cal-day-events .row-badge { display: none; }
-  #cal-day-events .row-right { display: flex; }
+  #cal-day-events .list-row { grid-template-columns: 90px 1fr; }
+  #cal-day-events .row-badge, #cal-day-events .row-right { display: none; }
+  .cal-nav-btn { min-width: 44px; min-height: 44px; }
+
+  /* Event detail */
+  .detail-card { flex-direction: column; }
+  .detail-img, .detail-img-fallback { height: 220px; border-radius: var(--radius-card) var(--radius-card) 0 0; }
+  .detail-body { padding: 20px 16px; }
+  .detail-actions { flex-direction: column; }
+  .btn-cta { justify-content: center; min-height: 48px; }
+
+  /* Pills: scrollable on mobile */
+  .category-pills { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
+  .category-pills::-webkit-scrollbar { display: none; }
+  .pill { flex-shrink: 0; }
 }

@@ -32,23 +32,54 @@
       </div>
       <div class="navbar-right">
         <span class="navbar-update" id="last-update"></span>
-        <button class="btn-ntfy hidden" id="btn-ntfy" title="ntfy actif">
+        <button class="btn-ntfy hidden" id="btn-ntfy" title="ntfy actif" aria-label="Notifications ntfy actives">
           <span class="ntfy-dot"></span>ntfy actif
         </button>
-        <button class="btn-bell" id="btn-bell" title="Nouveautés">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+        <button class="btn-refresh hidden" id="btn-refresh" title="Mettre à jour" aria-label="Mettre à jour les données">
+          <svg class="refresh-ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/>
+            <path d="M21 3v5h-5"/>
           </svg>
-          <span class="bell-badge hidden" id="bell-badge">0</span>
         </button>
-        <button class="btn-theme" id="btn-theme" title="Basculer thème">
+        <div class="bell-wrap" id="bell-wrap">
+          <button class="btn-bell" id="btn-bell" title="Nouveautés" aria-label="Voir les nouveautés" aria-haspopup="true" aria-expanded="false">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+            </svg>
+            <span class="bell-badge hidden" id="bell-badge">0</span>
+          </button>
+          <div class="bell-dropdown hidden" id="bell-dropdown" role="dialog" aria-label="Nouveautés récentes">
+            <div class="bell-dropdown-head">
+              <span class="bell-dropdown-title">Nouveautés</span>
+              <button class="bell-mark-seen" id="bell-mark-seen">Tout marquer comme vu</button>
+            </div>
+            <div class="bell-list" id="bell-list">
+              <p class="empty-state" style="padding:24px">Chargement…</p>
+            </div>
+          </div>
+        </div>
+        <button class="btn-theme" id="btn-theme" title="Basculer thème" aria-label="Basculer entre thème sombre et clair">
           <span class="icon-sun">☀️</span>
           <span class="icon-moon">🌙</span>
+        </button>
+        <button class="btn-hamburger" id="btn-hamburger" aria-label="Menu navigation" aria-expanded="false">
+          <span class="hamburger-bar"></span>
+          <span class="hamburger-bar"></span>
+          <span class="hamburger-bar"></span>
         </button>
       </div>
     </div>
   </header>
+
+  <!-- ── MOBILE NAV ───────────────────────────────────── -->
+  <div class="mobile-nav-overlay hidden" id="mobile-nav-overlay" aria-hidden="true">
+    <nav class="mobile-nav" role="navigation" aria-label="Navigation principale">
+      <a href="#/radar"      class="mobile-nav-link" data-route="radar">Radar</a>
+      <a href="#/calendrier" class="mobile-nav-link" data-route="calendrier">Calendrier</a>
+      <a href="#/sorties"    class="mobile-nav-link" data-route="sorties">Toutes les sorties</a>
+    </nav>
+  </div>
 
   <!-- ── PAGES ──────────────────────────────────────── -->
   <main class="main container">
@@ -140,8 +171,8 @@
       <div class="cal-head">
         <h2 class="cal-month-label" id="cal-month-label"></h2>
         <div class="cal-nav">
-          <button class="cal-nav-btn" id="cal-prev">‹</button>
-          <button class="cal-nav-btn" id="cal-next">›</button>
+          <button class="cal-nav-btn" id="cal-prev" aria-label="Mois précédent">‹</button>
+          <button class="cal-nav-btn" id="cal-next" aria-label="Mois suivant">›</button>
         </div>
         <div class="cal-legend" id="cal-legend"></div>
       </div>
