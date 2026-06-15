@@ -1,73 +1,172 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" data-theme="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Sorties Caen &#8212; Agenda des salles</title>
+  <title>Sorties Caen</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/static/css/style.css" />
 </head>
 <body>
-  <header>
-    <div class="header-inner">
-      <div class="header-title">
-        <span class="logo">&#9835;</span>
-        <h1>Sorties Caen</h1>
-        <span class="subtitle">Agenda des salles de spectacle</span>
+
+  <!-- ── NAVBAR ─────────────────────────────────────── -->
+  <header class="navbar">
+    <div class="navbar-inner container">
+      <div class="navbar-left">
+        <a href="#/radar" class="navbar-brand">
+          <span class="navbar-pin">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+              <circle cx="12" cy="10" r="3"/>
+            </svg>
+          </span>
+          Sorties Caen
+        </a>
+        <nav class="navbar-nav">
+          <a href="#/radar"      class="nav-link" data-route="radar">Radar</a>
+          <a href="#/calendrier" class="nav-link" data-route="calendrier">Calendrier</a>
+          <a href="#/sorties"    class="nav-link" data-route="sorties">Toutes les sorties</a>
+        </nav>
       </div>
-      <div class="header-actions">
-        <button id="btn-scrape" class="btn btn-primary" title="Relancer la r&#233;cup&#233;ration des donn&#233;es">
-          &#8635; Mettre &#224; jour
+      <div class="navbar-right">
+        <span class="navbar-update" id="last-update"></span>
+        <button class="btn-ntfy hidden" id="btn-ntfy" title="ntfy actif">
+          <span class="ntfy-dot"></span>ntfy actif
         </button>
-        <span id="scrape-status" class="scrape-status"></span>
+        <button class="btn-bell" id="btn-bell" title="Nouveautés">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          </svg>
+          <span class="bell-badge hidden" id="bell-badge">0</span>
+        </button>
+        <button class="btn-theme" id="btn-theme" title="Basculer thème">
+          <span class="icon-sun">☀️</span>
+          <span class="icon-moon">🌙</span>
+        </button>
       </div>
     </div>
   </header>
 
-  <main>
-    <!-- Derni&#232;res sorties programm&#233;es -->
-    <section id="section-new" class="section-new">
-      <h2 class="section-title">
-        <span class="dot-new"></span>
-        Derni&#232;res sorties programm&#233;es
-        <span id="new-count" class="badge"></span>
-      </h2>
-      <div id="new-events-list" class="new-events-list">
-        <div class="loading">Chargement&#8230;</div>
+  <!-- ── PAGES ──────────────────────────────────────── -->
+  <main class="main container">
+
+    <!-- PAGE RADAR -->
+    <div id="page-radar" class="page hidden">
+
+      <div class="new-banner hidden" id="new-banner">
+        <div class="new-banner-icon">✦</div>
+        <div class="new-banner-body">
+          <strong id="new-banner-title">nouveaux événements depuis ta dernière visite</strong>
+          <span id="new-banner-sub"></span>
+        </div>
+        <a href="#/radar" class="btn btn-accent" id="new-banner-cta">Voir les nouveautés →</a>
       </div>
-    </section>
 
-    <!-- Filtres de salles -->
-    <section class="section-filters">
-      <div id="venue-filters" class="venue-filters">
-        <button class="filter-btn active" data-venue="">Toutes les salles</button>
+      <div class="search-bar">
+        <div class="search-wrap">
+          <svg class="search-ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input type="search" id="search-input" class="search-input" placeholder="Rechercher un artiste, un lieu…" autocomplete="off" />
+        </div>
+        <div class="search-selects">
+          <div class="sel-wrap">
+            <select id="filter-venue" class="sel">
+              <option value="">Toutes les salles</option>
+            </select>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
+          </div>
+          <div class="sel-wrap">
+            <select id="filter-date" class="sel">
+              <option value="">Toutes dates</option>
+              <option value="week">Cette semaine</option>
+              <option value="weekend">Ce week-end</option>
+              <option value="month">Ce mois</option>
+            </select>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
+          </div>
+        </div>
       </div>
-    </section>
 
-    <!-- Calendrier -->
-    <section class="section-calendar">
-      <div class="calendar-nav">
-        <button id="btn-prev" class="nav-btn">&#8249;</button>
-        <h2 id="calendar-title" class="calendar-title"></h2>
-        <button id="btn-next" class="nav-btn">&#8250;</button>
+      <div class="category-pills" id="category-pills">
+        <button class="pill active" data-cat="">● Tout</button>
       </div>
-      <div id="calendar" class="calendar-grid"></div>
-    </section>
 
-    <!-- Liste des &#233;v&#233;nements du jour / mois s&#233;lectionn&#233; -->
-    <section id="section-events" class="section-events">
-      <h2 class="section-title" id="events-list-title">&#201;v&#233;nements</h2>
-      <div id="events-list" class="events-list"></div>
-    </section>
-  </main>
+      <!-- Nouveautés -->
+      <section class="section" id="section-new">
+        <div class="section-head">
+          <div class="section-title-row">
+            <h2 class="section-title">Nouveautés</h2>
+            <span class="section-meta" id="new-meta"></span>
+          </div>
+          <div class="sort-toggle">
+            <span class="sort-label">Trier par</span>
+            <button class="sort-btn active" id="sort-added" data-sort="added">Date d'ajout</button>
+            <button class="sort-btn" id="sort-date"  data-sort="date">Date de l'événement</button>
+          </div>
+        </div>
+        <div class="cards-grid" id="new-cards"></div>
+        <button class="btn-more hidden" id="btn-more-new">Afficher plus de nouveautés ∨</button>
+      </section>
 
-  <!-- Modal d&#233;tail &#233;v&#233;nement -->
-  <div id="modal" class="modal hidden">
-    <div class="modal-overlay" id="modal-overlay"></div>
-    <div class="modal-content">
-      <button class="modal-close" id="modal-close">&#10005;</button>
-      <div id="modal-body"></div>
+      <!-- Week-end -->
+      <section class="section" id="section-weekend">
+        <div class="section-head">
+          <div class="section-title-row">
+            <h2 class="section-title">Ce week-end</h2>
+            <span class="section-meta" id="weekend-meta"></span>
+          </div>
+        </div>
+        <div class="cards-grid" id="weekend-cards"></div>
+        <p class="empty-state hidden" id="weekend-empty">Aucun événement programmé ce week-end.</p>
+      </section>
+
+      <!-- À venir -->
+      <section class="section" id="section-upcoming">
+        <div class="section-head">
+          <h2 class="section-title">À venir</h2>
+        </div>
+        <div class="list-rows" id="upcoming-rows"></div>
+        <button class="btn-more hidden" id="btn-more-upcoming">Afficher plus ∨</button>
+      </section>
+
+    </div><!-- /page-radar -->
+
+    <!-- PAGE CALENDRIER -->
+    <div id="page-calendrier" class="page hidden">
+      <div class="cal-head">
+        <h2 class="cal-month-label" id="cal-month-label"></h2>
+        <div class="cal-nav">
+          <button class="cal-nav-btn" id="cal-prev">‹</button>
+          <button class="cal-nav-btn" id="cal-next">›</button>
+        </div>
+        <div class="cal-legend" id="cal-legend"></div>
+      </div>
+      <div class="cal-days-header">
+        <span>LUN</span><span>MAR</span><span>MER</span>
+        <span>JEU</span><span>VEN</span><span>SAM</span><span>DIM</span>
+      </div>
+      <div class="cal-grid" id="cal-grid"></div>
     </div>
-  </div>
+
+    <!-- PAGE TOUTES LES SORTIES -->
+    <div id="page-sorties" class="page hidden">
+      <div class="all-head">
+        <h2 class="section-title">Toutes les sorties</h2>
+        <span class="section-meta" id="all-meta"></span>
+      </div>
+      <div class="list-rows" id="all-rows"></div>
+      <button class="btn-more hidden" id="btn-more-all">Charger plus ∨</button>
+    </div>
+
+    <!-- PAGE FICHE ÉVÉNEMENT -->
+    <div id="page-event" class="page hidden">
+      <button class="back-btn" id="btn-back">← Retour</button>
+      <div id="event-detail"></div>
+    </div>
+
+  </main>
 
   <script src="/static/js/app.js"></script>
 </body>
