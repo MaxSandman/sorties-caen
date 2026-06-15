@@ -25,6 +25,29 @@ _CAT_MAP = {
 }
 
 
+import re
+
+MONTHS_FR = {
+    "janvier": 1, "février": 2, "mars": 3, "avril": 4,
+    "mai": 5, "juin": 6, "juillet": 7, "août": 8,
+    "septembre": 9, "octobre": 10, "novembre": 11, "décembre": 12,
+}
+
+
+def _parse_french_date(text: str) -> datetime | None:
+    text = text.strip().lower()
+    m = re.search(r"(\d{1,2})\s+(\w+)\s+(\d{4})", text)
+    if m:
+        day, month_str, year = int(m.group(1)), m.group(2), int(m.group(3))
+        month = MONTHS_FR.get(month_str)
+        if month:
+            return datetime(year, month, day)
+    try:
+        return datetime.fromisoformat(text[:10])
+    except Exception:
+        return None
+
+
 def _map_cat(raw: str) -> str:
     return _CAT_MAP.get(raw.lower().strip(), "spectacle")
 
