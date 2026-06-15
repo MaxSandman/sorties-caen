@@ -1,18 +1,18 @@
 /* ============================================================
-   Sorties Caen — Frontend JS
+   Sorties Caen — Frontend
    ============================================================ */
 
-// ── Design tokens : catégories ────────────────────────────────
+// ── Design tokens ─────────────────────────────────────────────
 const CAT_COLORS = {
-  musique:   '#7C5CFB',
-  théâtre:   '#E5484D',
-  theatre:   '#E5484D',
-  humour:    '#F5A524',
-  danse:     '#E93D82',
-  expo:      '#2F9CF4',
-  enfants:   '#30A46C',
-  sport:     '#F76808',
-  brocante:  '#12A594',
+  musique:  '#7C5CFB',
+  théâtre:  '#E5484D',
+  theatre:  '#E5484D',
+  humour:   '#F5A524',
+  danse:    '#E93D82',
+  expo:     '#2F9CF4',
+  enfants:  '#30A46C',
+  sport:    '#F76808',
+  brocante: '#12A594',
 };
 
 function catColor(cat) {
@@ -20,171 +20,131 @@ function catColor(cat) {
   return CAT_COLORS[cat.toLowerCase().trim()] ?? '#93A0B8';
 }
 
-// ── API helpers ───────────────────────────────────────────────
+// ── API ────────────────────────────────────────────────────────
 async function api(path) {
   const res = await fetch('/api' + path);
-  if (!res.ok) throw new Error(`API ${path} → ${res.status}`);
+  if (!res.ok) throw new Error(`${res.status}`);
   return res.json();
 }
 
-// ── Date formatters ───────────────────────────────────────────
-const DAYS_FR   = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
-const MONTHS_FR = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
-const MONTHS_FR_LONG = MONTHS_FR;
+// ── Dates ──────────────────────────────────────────────────────
+const DAYS   = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
+const MONTHS = ['janvier','février','mars','avril','mai','juin',
+                'juillet','août','septembre','octobre','novembre','décembre'];
 
 function fmtDate(iso) {
   const d = new Date(iso);
-  return `${DAYS_FR[d.getDay()]} ${d.getDate()} ${MONTHS_FR[d.getMonth()]}`;
+  return `${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`;
 }
-function fmtDateFull(iso) {
-  const d = new Date(iso);
-  return `${DAYS_FR[d.getDay()]} ${d.getDate()} ${MONTHS_FR[d.getMonth()]} · ${fmtTime(iso)}`;
-}
-function fmtTime(iso) {
+function fmtDateTime(iso) {
   const d = new Date(iso);
   const h = d.getHours(), m = d.getMinutes();
-  return `${h}h${m.toString().padStart(2,'0')}`;
+  return `${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]} · ${h}h${String(m).padStart(2,'0')}`;
 }
 function fmtRelative(iso) {
-  const diff = (Date.now() - new Date(iso)) / 1000;
-  if (diff < 3600)   return `Ajouté il y a ${Math.round(diff/60)} min`;
-  if (diff < 86400)  return `Ajouté il y a ${Math.round(diff/3600)} h`;
-  if (diff < 172800) return 'Ajouté hier';
-  return `Ajouté il y a ${Math.round(diff/86400)} j`;
+  const s = (Date.now() - new Date(iso)) / 1000;
+  if (s < 3600)   return `Ajouté il y a ${Math.round(s/60)} min`;
+  if (s < 86400)  return `Ajouté il y a ${Math.round(s/3600)} h`;
+  if (s < 172800) return 'Ajouté hier';
+  return `Ajouté il y a ${Math.round(s/86400)} j`;
 }
-function fmtRelativeShort(iso) {
-  // For stats "Mis à jour il y a X"
-  const diff = (Date.now() - new Date(iso)) / 1000;
-  if (diff < 60)    return 'Mis à jour à l\'instant';
-  if (diff < 3600)  return `Mis à jour il y a ${Math.round(diff/60)} min`;
-  if (diff < 86400) return `Mis à jour il y a ${Math.round(diff/3600)} h`;
-  return `Mis à jour il y a ${Math.round(diff/86400)} j`;
+function fmtScrapeAge(iso) {
+  const s = (Date.now() - new Date(iso)) / 1000;
+  if (s < 60)    return "Mis à jour à l'instant";
+  if (s < 3600)  return `Mis à jour il y a ${Math.round(s/60)} min`;
+  if (s < 86400) return `Mis à jour il y a ${Math.round(s/3600)} h`;
+  return `Mis à jour il y a ${Math.round(s/86400)} j`;
 }
-function fmtPrice(price) {
-  if (!price) return '';
-  const low = price.toLowerCase().trim();
-  if (['gratuit','free','0','0€','0 €','entrée libre','libre'].includes(low)) return 'Gratuit';
-  return price;
+function fmtPrice(p) {
+  if (!p) return '';
+  const l = p.toLowerCase().trim();
+  if (['gratuit','free','0','0€','0 €','entrée libre','libre'].includes(l)) return 'Gratuit';
+  return p;
 }
 
-// ── HTML helpers ──────────────────────────────────────────────
+// ── SVG icons ─────────────────────────────────────────────────
+const ICO_CAL  = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
+const ICO_PIN  = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>`;
+const ICO_ARR  = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M7 17 17 7M17 7H7M17 7v10"/></svg>`;
+
+// ── HTML components ────────────────────────────────────────────
 function badgeCat(cat) {
-  const color = catColor(cat);
-  return `<span class="badge-cat" style="--cat-color:${color}">${cat ?? ''}</span>`;
-}
-function badgeNew() {
-  return `<span class="badge-new">Nouveau</span>`;
-}
-function iconCal() {
-  return `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
-}
-function iconPin() {
-  return `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>`;
-}
-function iconArrow() {
-  return `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M7 17 17 7M17 7H7M17 7v10"/></svg>`;
+  const c = catColor(cat);
+  return `<span class="badge-cat" style="--cat-color:${c}">${cat}</span>`;
 }
 
-// ── Card builder ──────────────────────────────────────────────
 function buildCard(ev) {
   const color = catColor(ev.category);
   const price = fmtPrice(ev.price);
-  const hasImg = !!ev.image_url;
-  const imgHtml = hasImg
-    ? `<img src="${ev.image_url}" alt="" loading="lazy" />`
-    : '';
-  const added = fmtRelative(ev.first_seen);
+  const isNew = ev.is_new;
 
-  return `
-  <div class="card" data-id="${ev.id}">
-    <div class="card-img${hasImg ? '' : ' no-img'}" style="--cat-color:${color}">
-      ${imgHtml}
-      <div class="card-img-gradient"></div>
-      <div class="card-badges">
+  const imgPart = ev.image_url
+    ? `<img src="${ev.image_url}" alt="" loading="lazy" /><div class="card-img-overlay"></div>`
+    : `<div class="card-img-fallback" style="background:linear-gradient(135deg,${color}55 0%,${color}11 100%)"></div>`;
+
+  return `<div class="card" data-id="${ev.id}">
+    <div class="card-visual">
+      ${imgPart}
+      <div class="card-top-badges">
         ${ev.category ? badgeCat(ev.category) : ''}
-        ${ev.is_new ? badgeNew() : ''}
+        ${isNew ? '<span class="badge-new">NOUVEAU</span>' : ''}
       </div>
     </div>
     <div class="card-body">
-      <span class="card-added">${added}</span>
-      <div class="card-title">${ev.title}</div>
-      <div class="card-date">${iconCal()} ${fmtDateFull(ev.date)}</div>
-      <div class="card-venue">${iconPin()} ${ev.venue}</div>
+      <span class="card-added">${fmtRelative(ev.first_seen)}</span>
+      <h3 class="card-title">${ev.title}</h3>
+      <div class="card-meta">${ICO_CAL} ${fmtDateTime(ev.date)}</div>
+      <div class="card-meta">${ICO_PIN} ${ev.venue}</div>
     </div>
     <div class="card-footer">
-      <span class="card-price${price === 'Gratuit' ? ' free' : ''}">${price}</span>
-      ${ev.booking_url ? `<a class="card-book" href="${ev.booking_url}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Billetterie ${iconArrow()}</a>` : ''}
+      <span class="card-price${price === 'Gratuit' ? ' is-free' : ''}">${price || '—'}</span>
+      ${ev.booking_url
+        ? `<a class="card-book" href="${ev.booking_url}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Billetterie ${ICO_ARR}</a>`
+        : ''}
     </div>
   </div>`;
 }
 
-// ── List row builder ──────────────────────────────────────────
 function buildRow(ev) {
   const color = catColor(ev.category);
   const price = fmtPrice(ev.price);
-  return `
-  <div class="list-row" data-id="${ev.id}">
-    <div class="list-row-date">
-      <span class="list-row-bar" style="background:${color}"></span>
-      ${fmtDate(ev.date)}<br><small>${ev.time || fmtTime(ev.date)}</small>
+  return `<div class="list-row" data-id="${ev.id}">
+    <div class="row-date">
+      <span class="row-bar" style="background:${color}"></span>
+      <span>${fmtDate(ev.date)}</span>
     </div>
-    <div class="list-row-info">
-      <div class="list-row-title">${ev.title}</div>
-      <div class="list-row-venue">${ev.venue}</div>
+    <div class="row-info">
+      <div class="row-title">${ev.title}</div>
+      <div class="row-venue">${ev.venue}</div>
     </div>
-    <div class="list-row-badge">${ev.category ? badgeCat(ev.category) : ''}</div>
-    <div class="list-row-right">
-      <span class="list-row-price">${price}</span>
-      ${ev.booking_url ? `<a class="list-row-link" href="${ev.booking_url}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Billetterie ${iconArrow()}</a>` : ''}
+    <div class="row-badge">${ev.category ? badgeCat(ev.category) : ''}</div>
+    <div class="row-right">
+      <span class="row-price">${price}</span>
+      ${ev.booking_url
+        ? `<a class="row-book" href="${ev.booking_url}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Billetterie ${ICO_ARR}</a>`
+        : ''}
     </div>
   </div>`;
 }
 
-// ── Router ────────────────────────────────────────────────────
-const PAGES = ['radar', 'calendrier', 'sorties', 'event'];
-
-function getRoute() {
-  const hash = location.hash.replace('#/', '');
-  if (!hash) return { page: 'radar', param: null };
-  const [page, ...rest] = hash.split('/');
-  return { page: PAGES.includes(page) ? page : 'radar', param: rest[0] ?? null };
-}
-
-function navigate(path) {
-  location.hash = '#/' + path;
-}
-
-function setActiveNav(page) {
-  document.querySelectorAll('.nav-link').forEach(el => {
-    el.classList.toggle('active', el.dataset.route === page);
-  });
-}
-
-// ── Delegated card/row click → event detail ───────────────────
-document.addEventListener('click', e => {
-  const card = e.target.closest('[data-id]');
-  if (card && !e.target.closest('a')) {
-    navigate('event/' + card.dataset.id);
-  }
-});
-
 // ── State ─────────────────────────────────────────────────────
-let currentSort  = 'added';
-let currentCat   = '';
-let currentVenue = '';
-let currentDate  = '';
-let searchQuery  = '';
-let calYear, calMonth;
-let newPageSize  = 8;
-let upcomingPage = 1;
-let allPage      = 1;
-let lastVisit    = localStorage.getItem('lastVisit');
-let newCount     = 0;
+const state = {
+  sort:       'added',   // 'added' | 'date'
+  cat:        '',
+  venue:      '',
+  search:     '',
+  newItems:   [],        // cache for load-more
+  newShown:   4,
+  upPage:     1,
+  upParams:   null,
+  allPage:    1,
+  calYear:    new Date().getFullYear(),
+  calMonth:   new Date().getMonth() + 1,
+};
 
-// ── Navbar: theme + last update + bell ───────────────────────
+// ── Theme ─────────────────────────────────────────────────────
 function initTheme() {
-  const saved = localStorage.getItem('theme') || 'dark';
-  document.documentElement.dataset.theme = saved;
+  document.documentElement.dataset.theme = localStorage.getItem('theme') || 'dark';
 }
 document.getElementById('btn-theme').addEventListener('click', () => {
   const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
@@ -192,412 +152,354 @@ document.getElementById('btn-theme').addEventListener('click', () => {
   localStorage.setItem('theme', next);
 });
 
-async function loadStats() {
+// ── Navbar stats ──────────────────────────────────────────────
+async function refreshNavbar() {
   try {
     const s = await api('/stats');
-    newCount = s.count_new_7d;
     const el = document.getElementById('last-update');
-    el.textContent = s.last_scrape_at ? fmtRelativeShort(s.last_scrape_at) : '';
+    if (s.last_scrape_at) el.textContent = fmtScrapeAge(s.last_scrape_at);
     const badge = document.getElementById('bell-badge');
-    if (newCount > 0) {
-      badge.textContent = newCount;
+    if (s.count_new_7d > 0) {
+      badge.textContent = s.count_new_7d;
       badge.classList.remove('hidden');
     }
   } catch {}
 }
-
 document.getElementById('btn-bell').addEventListener('click', () => navigate('radar'));
-document.getElementById('btn-ntfy').classList.remove('hidden'); // assume ntfy configured
 
-// ── Venues → select ──────────────────────────────────────────
-async function loadVenues() {
+// ── Venue select ──────────────────────────────────────────────
+async function populateVenueSelect() {
   try {
     const venues = await api('/venues');
     const sel = document.getElementById('filter-venue');
     venues.forEach(v => {
-      const opt = document.createElement('option');
-      opt.value = v.key;
-      opt.textContent = `${v.name} (${v.count})`;
-      sel.appendChild(opt);
+      const o = document.createElement('option');
+      o.value = v.key;
+      o.textContent = `${v.name} (${v.count})`;
+      sel.appendChild(o);
     });
   } catch {}
 }
 
-// ── Category pills ───────────────────────────────────────────
-async function loadCategoryPills() {
+// ── Category pills ─────────────────────────────────────────────
+async function populateCategoryPills() {
   try {
     const cats = await api('/categories');
     const wrap = document.getElementById('category-pills');
     cats.forEach(c => {
-      const color = catColor(c.name);
       const btn = document.createElement('button');
       btn.className = 'pill';
       btn.dataset.cat = c.name;
-      btn.innerHTML = `<span style="color:${color}">●</span> ${c.name}`;
-      btn.style.setProperty('--cat-color', color);
+      const col = catColor(c.name);
+      btn.innerHTML = `<span style="color:${col}">●</span> ${c.name}`;
       wrap.appendChild(btn);
-    });
-    wrap.addEventListener('click', e => {
-      const btn = e.target.closest('.pill');
-      if (!btn) return;
-      currentCat = btn.dataset.cat;
-      wrap.querySelectorAll('.pill').forEach(p => {
-        p.classList.toggle('active', p === btn);
-        if (p === btn && p.dataset.cat) {
-          p.style.background = color_mix(catColor(p.dataset.cat));
-          p.style.borderColor = 'transparent';
-          p.style.color = 'white';
-        } else {
-          p.style.background = '';
-          p.style.borderColor = '';
-          p.style.color = '';
-        }
-      });
-      refreshRadar();
     });
   } catch {}
 }
 
-function color_mix(hex) {
-  // Returns a semi-transparent version for active pill bg
-  return hex + '33';
-}
-
-// ── Pill active style helper ──────────────────────────────────
-function styleActivePill(wrap) {
-  wrap.querySelectorAll('.pill').forEach(p => {
+function applyPillStyles() {
+  document.querySelectorAll('#category-pills .pill').forEach(p => {
     const active = p.classList.contains('active');
-    if (active && p.dataset.cat) {
-      const c = catColor(p.dataset.cat);
-      p.style.background = c + '33';
-      p.style.borderColor = c + '55';
-      p.style.color = c;
+    const cat = p.dataset.cat;
+    if (active && cat) {
+      const c = catColor(cat);
+      p.style.cssText = `background:${c}28;border-color:${c}55;color:${c}`;
     } else if (active) {
-      p.style.background = 'var(--accent)';
-      p.style.borderColor = 'transparent';
-      p.style.color = 'white';
+      p.style.cssText = 'background:var(--accent);border-color:transparent;color:white';
     } else {
-      p.style.background = '';
-      p.style.borderColor = '';
-      p.style.color = '';
+      p.style.cssText = '';
     }
   });
 }
 
-// ── RADAR ─────────────────────────────────────────────────────
-async function loadRadar() {
-  await Promise.all([loadNewSection(), loadWeekendSection(), loadUpcomingSection()]);
-  // Save last visit
-  localStorage.setItem('lastVisit', new Date().toISOString());
-}
-
-async function loadNewSection() {
-  const cards = document.getElementById('new-cards');
-  const meta  = document.getElementById('new-meta');
-  cards.innerHTML = '';
-  try {
-    const sort = currentSort === 'added' ? 'added' : 'date';
-    const params = new URLSearchParams({ days: 30, sort });
-    if (currentCat)   params.set('category', currentCat);
-    if (currentVenue) params.set('venue', currentVenue);
-    if (searchQuery)  params.set('search', searchQuery);
-
-    const data = await api('/events?sort=added&days=30&' + params.toString());
-    // data is PaginatedEvents
-    const items = data.items ?? data;
-    const shown = items.slice(0, newPageSize);
-
-    meta.textContent = `triées par ${currentSort === 'added' ? "date d'ajout" : "date de l'événement"} · ${items.length} résultat${items.length > 1 ? 's' : ''}`;
-    cards.innerHTML = shown.map(buildCard).join('');
-
-    const btnMore = document.getElementById('btn-more-new');
-    if (items.length > newPageSize) {
-      btnMore.classList.remove('hidden');
-      btnMore._items = items;
-    } else {
-      btnMore.classList.add('hidden');
-    }
-  } catch (err) {
-    cards.innerHTML = '<p class="empty-state">Impossible de charger les événements.</p>';
-  }
-}
-
-async function loadWeekendSection() {
-  const cards = document.getElementById('weekend-cards');
-  const meta  = document.getElementById('weekend-meta');
-  const empty = document.getElementById('weekend-empty');
-  cards.innerHTML = '';
-  try {
-    const items = await api('/events/weekend');
-    let filtered = items;
-    if (currentCat)   filtered = filtered.filter(e => e.category?.toLowerCase() === currentCat.toLowerCase());
-    if (currentVenue) filtered = filtered.filter(e => e.venue_key === currentVenue);
-    if (searchQuery)  filtered = filtered.filter(e =>
-      e.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      e.venue.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-
-    // Build date label e.g. "Ven 28 — Dim 30 mars"
-    if (items.length > 0) {
-      const d0 = new Date(items[0].date), d1 = new Date(items[items.length-1].date);
-      meta.textContent = `${DAYS_FR[d0.getDay()]} ${d0.getDate()} — ${DAYS_FR[d1.getDay()]} ${d1.getDate()} ${MONTHS_FR[d1.getMonth()]}`;
-    }
-    if (filtered.length === 0) {
-      empty.classList.remove('hidden');
-    } else {
-      empty.classList.add('hidden');
-      cards.innerHTML = filtered.map(buildCard).join('');
-    }
-  } catch {}
-}
-
-async function loadUpcomingSection() {
-  const rows = document.getElementById('upcoming-rows');
-  rows.innerHTML = '';
-  try {
-    const params = new URLSearchParams({ sort: 'date', page: 1, page_size: 20 });
-    if (currentCat)   params.set('category', currentCat);
-    if (currentVenue) params.set('venue', currentVenue);
-    if (searchQuery)  params.set('search', searchQuery);
-
-    const data = await api('/events?' + params.toString());
-    const items = data.items ?? data;
-    rows.innerHTML = items.map(buildRow).join('');
-
-    const btnMore = document.getElementById('btn-more-upcoming');
-    if ((data.pages ?? 1) > 1) {
-      btnMore.classList.remove('hidden');
-      btnMore._page = 1;
-      btnMore._params = params;
-    } else {
-      btnMore.classList.add('hidden');
-    }
-  } catch {}
-}
-
-function refreshRadar() {
-  loadNewSection();
-  loadWeekendSection();
-  loadUpcomingSection();
-}
-
-// ── Sort toggle ───────────────────────────────────────────────
-document.getElementById('sort-added').addEventListener('click', function() {
-  currentSort = 'added';
-  this.classList.add('active');
-  document.getElementById('sort-date').classList.remove('active');
-  loadNewSection();
-});
-document.getElementById('sort-date').addEventListener('click', function() {
-  currentSort = 'date';
-  this.classList.add('active');
-  document.getElementById('sort-added').classList.remove('active');
-  loadNewSection();
+document.getElementById('category-pills').addEventListener('click', e => {
+  const btn = e.target.closest('.pill');
+  if (!btn) return;
+  state.cat = btn.dataset.cat ?? '';
+  document.querySelectorAll('#category-pills .pill').forEach(p =>
+    p.classList.toggle('active', p === btn)
+  );
+  applyPillStyles();
+  refreshRadar();
 });
 
-// ── More buttons ──────────────────────────────────────────────
-document.getElementById('btn-more-new').addEventListener('click', function() {
-  const items = this._items || [];
-  newPageSize += 8;
-  const shown = items.slice(0, newPageSize);
-  document.getElementById('new-cards').innerHTML = shown.map(buildCard).join('');
-  if (newPageSize >= items.length) this.classList.add('hidden');
-});
-
-document.getElementById('btn-more-upcoming').addEventListener('click', async function() {
-  const params = this._params;
-  params.set('page', ++this._page);
-  const data = await api('/events?' + params.toString());
-  const items = data.items ?? data;
-  document.getElementById('upcoming-rows').insertAdjacentHTML('beforeend', items.map(buildRow).join(''));
-  if (this._page >= (data.pages ?? 1)) this.classList.add('hidden');
-});
-
-document.getElementById('btn-more-all').addEventListener('click', async function() {
-  allPage++;
-  const params = buildAllParams();
-  params.set('page', allPage);
-  const data = await api('/events?' + params.toString());
-  const items = data.items ?? data;
-  document.getElementById('all-rows').insertAdjacentHTML('beforeend', items.map(buildRow).join(''));
-  if (allPage >= (data.pages ?? 1)) this.classList.add('hidden');
-});
-
-// ── Filters ───────────────────────────────────────────────────
+// ── Filters ────────────────────────────────────────────────────
 let searchTimer;
 document.getElementById('search-input').addEventListener('input', function() {
   clearTimeout(searchTimer);
-  searchTimer = setTimeout(() => {
-    searchQuery = this.value.trim();
-    refreshRadar();
-    if (document.getElementById('page-sorties').classList.contains('page') &&
-        !document.getElementById('page-sorties').classList.contains('hidden')) {
-      loadAllPage();
-    }
-  }, 280);
+  searchTimer = setTimeout(() => { state.search = this.value.trim(); refreshRadar(); }, 280);
 });
-
 document.getElementById('filter-venue').addEventListener('change', function() {
-  currentVenue = this.value;
-  refreshRadar();
+  state.venue = this.value; refreshRadar();
 });
-
 document.getElementById('filter-date').addEventListener('change', function() {
-  currentDate = this.value;
-  refreshRadar();
+  refreshRadar(); // date filter handled in upcoming params
 });
 
-// ── New banner ────────────────────────────────────────────────
+// ── Sort toggle ────────────────────────────────────────────────
+document.getElementById('sort-added').addEventListener('click', function() {
+  state.sort = 'added';
+  this.classList.add('active');
+  document.getElementById('sort-date').classList.remove('active');
+  renderNewSection();
+});
+document.getElementById('sort-date').addEventListener('click', function() {
+  state.sort = 'date';
+  this.classList.add('active');
+  document.getElementById('sort-added').classList.remove('active');
+  renderNewSection();
+});
+
+// ── New banner ─────────────────────────────────────────────────
 async function loadNewBanner() {
   try {
-    const s = await api('/stats');
-    const count = s.count_new_7d;
-    if (count <= 0) return;
-    const banner = document.getElementById('new-banner');
-    const title  = document.getElementById('new-banner-title');
-    const sub    = document.getElementById('new-banner-sub');
-    title.textContent = `${count} nouveaux événement${count > 1 ? 's' : ''} depuis ta dernière visite`;
+    const lastVisit = localStorage.getItem('lastVisit');
+    let newEvents;
     if (lastVisit) {
-      const diff = Math.round((Date.now() - new Date(lastVisit)) / 86400000);
-      sub.textContent = diff === 0 ? "Dernier passage aujourd'hui · les petites salles partent vite, ne traîne pas."
-                      : diff === 1 ? "Dernier passage hier · les petites salles partent vite, ne traîne pas."
-                      : `Dernier passage il y a ${diff} jours · les petites salles partent vite, ne traîne pas.`;
+      newEvents = await api('/events/new?since=' + encodeURIComponent(lastVisit));
+    } else {
+      newEvents = await api('/events/new?days=7');
+    }
+    if (newEvents.length === 0) return;
+
+    const banner = document.getElementById('new-banner');
+    document.getElementById('new-banner-title').textContent =
+      `${newEvents.length} nouveau${newEvents.length > 1 ? 'x' : ''} événement${newEvents.length > 1 ? 's' : ''} depuis ta dernière visite`;
+
+    if (lastVisit) {
+      const days = Math.round((Date.now() - new Date(lastVisit)) / 86400000);
+      const msg = days === 0 ? "Dernier passage aujourd'hui"
+                : days === 1 ? "Dernier passage hier"
+                : `Dernier passage il y a ${days} jour${days > 1 ? 's' : ''}`;
+      document.getElementById('new-banner-sub').textContent =
+        msg + ' · les petites salles partent vite, ne traîne pas.';
     }
     banner.classList.remove('hidden');
   } catch {}
 }
 
-// ── CALENDAR ─────────────────────────────────────────────────
-function initCalendar() {
-  const now = new Date();
-  calYear  = now.getFullYear();
-  calMonth = now.getMonth() + 1;
-  renderCalendar();
-  buildCalLegend();
+// ── Nouveautés section ────────────────────────────────────────
+async function loadNewEvents() {
+  try {
+    const params = new URLSearchParams({ days: 30 });
+    if (state.cat)    params.set('category', state.cat);
+    if (state.venue)  params.set('venue', state.venue);
+    if (state.search) params.set('search', state.search);
+    const items = await api('/events/new?' + params);
+    state.newItems = items;
+    state.newShown = 4;
+    renderNewSection();
+  } catch {
+    document.getElementById('new-cards').innerHTML =
+      '<p class="empty-state">Impossible de charger.</p>';
+  }
+}
+
+function renderNewSection() {
+  const items = state.sort === 'date'
+    ? [...state.newItems].sort((a, b) => new Date(a.date) - new Date(b.date))
+    : state.newItems; // already sorted by first_seen desc from API
+
+  const shown = items.slice(0, state.newShown);
+  document.getElementById('new-cards').innerHTML = shown.map(buildCard).join('');
+  document.getElementById('new-meta').textContent =
+    `triées par ${state.sort === 'added' ? "date d'ajout" : "date de l'événement"} · ${items.length} résultat${items.length !== 1 ? 's' : ''}`;
+
+  const btn = document.getElementById('btn-more-new');
+  btn.classList.toggle('hidden', state.newShown >= items.length);
+}
+
+document.getElementById('btn-more-new').addEventListener('click', () => {
+  state.newShown += 4;
+  renderNewSection();
+});
+
+// ── Weekend section ────────────────────────────────────────────
+async function loadWeekend() {
+  const grid  = document.getElementById('weekend-cards');
+  const meta  = document.getElementById('weekend-meta');
+  const empty = document.getElementById('weekend-empty');
+  grid.innerHTML = '';
+  try {
+    let items = await api('/events/weekend');
+    if (state.cat)    items = items.filter(e => e.category?.toLowerCase() === state.cat.toLowerCase());
+    if (state.venue)  items = items.filter(e => e.venue_key === state.venue);
+    if (state.search) {
+      const q = state.search.toLowerCase();
+      items = items.filter(e => e.title.toLowerCase().includes(q) || e.venue.toLowerCase().includes(q));
+    }
+    if (items.length === 0) {
+      empty.classList.remove('hidden');
+    } else {
+      empty.classList.add('hidden');
+      grid.innerHTML = items.map(buildCard).join('');
+      // Date range label
+      const d0 = new Date(items[0].date), d1 = new Date(items[items.length-1].date);
+      meta.textContent = `${DAYS[d0.getDay()]} ${d0.getDate()} — ${DAYS[d1.getDay()]} ${d1.getDate()} ${MONTHS[d1.getMonth()]}`;
+    }
+  } catch {}
+}
+
+// ── Upcoming section ───────────────────────────────────────────
+async function loadUpcoming() {
+  const wrap = document.getElementById('upcoming-rows');
+  wrap.innerHTML = '';
+  try {
+    const params = new URLSearchParams({ sort: 'date', page: 1, page_size: 20 });
+    if (state.cat)    params.set('category', state.cat);
+    if (state.venue)  params.set('venue', state.venue);
+    if (state.search) params.set('search', state.search);
+    const data = await api('/events?' + params);
+    const items = data.items ?? [];
+    wrap.innerHTML = items.map(buildRow).join('');
+    state.upPage = 1;
+    state.upParams = params;
+    const btn = document.getElementById('btn-more-upcoming');
+    btn.classList.toggle('hidden', (data.pages ?? 1) <= 1);
+  } catch {}
+}
+
+document.getElementById('btn-more-upcoming').addEventListener('click', async function() {
+  state.upParams.set('page', ++state.upPage);
+  const data = await api('/events?' + state.upParams);
+  document.getElementById('upcoming-rows')
+    .insertAdjacentHTML('beforeend', (data.items ?? []).map(buildRow).join(''));
+  if (state.upPage >= (data.pages ?? 1)) this.classList.add('hidden');
+});
+
+function refreshRadar() {
+  loadNewEvents();
+  loadWeekend();
+  loadUpcoming();
+}
+
+// ── RADAR page ─────────────────────────────────────────────────
+async function loadRadar() {
+  await loadNewBanner();
+  await Promise.all([loadNewEvents(), loadWeekend(), loadUpcoming()]);
+  // Save visit timestamp for next time (on unload would be ideal but unreliable on mobile)
+  localStorage.setItem('lastVisit', new Date().toISOString());
+}
+
+// ── CALENDAR page ──────────────────────────────────────────────
+function buildCalLegend() {
+  const wrap = document.getElementById('cal-legend');
+  wrap.innerHTML = '';
+  // Deduplicate (théâtre/theatre)
+  const seen = new Set();
+  Object.entries(CAT_COLORS).forEach(([name, color]) => {
+    if (seen.has(color)) return;
+    seen.add(color);
+    const label = name.charAt(0).toUpperCase() + name.slice(1);
+    wrap.insertAdjacentHTML('beforeend',
+      `<span class="cal-legend-item"><span class="cal-legend-dot" style="background:${color}"></span>${label}</span>`);
+  });
 }
 
 async function renderCalendar() {
-  const label = document.getElementById('cal-month-label');
-  const mm = String(calMonth).padStart(2, '0');
-  label.textContent = `${MONTHS_FR_LONG[calMonth-1].charAt(0).toUpperCase() + MONTHS_FR_LONG[calMonth-1].slice(1)} ${calYear}`;
+  const mm = String(state.calMonth).padStart(2, '0');
+  const monthName = MONTHS[state.calMonth-1];
+  document.getElementById('cal-month-label').textContent =
+    `${monthName.charAt(0).toUpperCase() + monthName.slice(1)} ${state.calYear}`;
 
   let days = [];
-  try {
-    days = await api(`/calendar?month=${calYear}-${mm}`);
-  } catch {}
-
-  // Build day map
-  const byDay = {};
-  days.forEach(d => { byDay[d.date] = d.events; });
+  try { days = await api(`/calendar?month=${state.calYear}-${mm}`); } catch {}
+  const byDay = Object.fromEntries(days.map(d => [d.date, d.events]));
 
   const grid = document.getElementById('cal-grid');
   grid.innerHTML = '';
 
-  // First day of month (Monday=0)
-  const first = new Date(calYear, calMonth-1, 1).getDay();
-  const startOffset = (first === 0 ? 6 : first - 1); // Mon-based
-  const daysInMonth = new Date(calYear, calMonth, 0).getDate();
-  const prevDays    = new Date(calYear, calMonth-1, 0).getDate();
+  const firstDow = new Date(state.calYear, state.calMonth-1, 1).getDay();
+  const offset   = firstDow === 0 ? 6 : firstDow - 1;
+  const dimMonth = new Date(state.calYear, state.calMonth, 0).getDate();
+  const prevDim  = new Date(state.calYear, state.calMonth-1, 0).getDate();
+  const today    = new Date().toISOString().slice(0,10);
 
-  const today = new Date().toISOString().slice(0,10);
-  let cells = [];
-
-  // Prev month padding
-  for (let i = startOffset - 1; i >= 0; i--) {
-    cells.push({ day: prevDays - i, dateStr: null, other: true });
+  const cells = [];
+  for (let i = offset-1; i >= 0; i--) cells.push({ day: prevDim-i, date: null, other: true });
+  for (let d = 1; d <= dimMonth; d++) {
+    cells.push({ day: d, date: `${state.calYear}-${mm}-${String(d).padStart(2,'0')}`, other: false });
   }
-  // Current month
-  for (let d = 1; d <= daysInMonth; d++) {
-    const dateStr = `${calYear}-${mm}-${String(d).padStart(2,'0')}`;
-    cells.push({ day: d, dateStr, other: false });
-  }
-  // Next month padding
-  const remaining = 7 - (cells.length % 7);
-  if (remaining < 7) {
-    for (let d = 1; d <= remaining; d++) cells.push({ day: d, dateStr: null, other: true });
-  }
+  const rem = (7 - cells.length % 7) % 7;
+  for (let d = 1; d <= rem; d++) cells.push({ day: d, date: null, other: true });
 
-  cells.forEach(({ day, dateStr, other }) => {
-    const evts = dateStr ? (byDay[dateStr] || []) : [];
-    const isToday = dateStr === today;
-    const div = document.createElement('div');
-    div.className = 'cal-cell' +
-      (other ? ' other-month' : '') +
-      (isToday ? ' today' : '') +
-      (evts.length ? ' has-events' : '');
+  cells.forEach(({ day, date, other }) => {
+    const evts = date ? (byDay[date] ?? []) : [];
+    const cell = document.createElement('div');
+    cell.className = ['cal-cell',
+      other      ? 'other-month' : '',
+      date === today ? 'today' : '',
+      evts.length    ? 'has-events' : '',
+    ].filter(Boolean).join(' ');
 
-    let chips = evts.slice(0, 3).map(ev => {
+    const chips = evts.slice(0,3).map(ev => {
       const c = catColor(ev.category);
-      return `<span class="cal-event-chip" style="background:${c}22;color:${c}">${ev.title}</span>`;
-    }).join('');
-    if (evts.length > 3) chips += `<span class="cal-event-chip" style="color:var(--text-muted)">+${evts.length-3}</span>`;
+      return `<span class="cal-chip" style="background:${c}22;color:${c}">${ev.title}</span>`;
+    }).join('') + (evts.length > 3 ? `<span class="cal-chip muted">+${evts.length-3}</span>` : '');
 
-    div.innerHTML = `<div class="cal-day-num">${day}</div>${chips}`;
-
-    if (evts.length && dateStr) {
-      div.addEventListener('click', () => {
+    cell.innerHTML = `<div class="cal-num">${day}</div>${chips}`;
+    if (evts.length && date) {
+      cell.addEventListener('click', () => {
         navigate('sorties');
-        setTimeout(() => {
-          loadAllPage({ date_from: dateStr, date_to: dateStr });
-        }, 50);
+        setTimeout(() => loadAllPage({ date_from: date, date_to: date }), 60);
       });
     }
-    grid.appendChild(div);
-  });
-}
-
-function buildCalLegend() {
-  const wrap = document.getElementById('cal-legend');
-  Object.entries(CAT_COLORS).slice(0, 8).forEach(([name, color]) => {
-    const item = document.createElement('span');
-    item.className = 'cal-legend-item';
-    item.innerHTML = `<span class="cal-legend-dot" style="background:${color}"></span>${name.charAt(0).toUpperCase()+name.slice(1)}`;
-    wrap.appendChild(item);
+    grid.appendChild(cell);
   });
 }
 
 document.getElementById('cal-prev').addEventListener('click', () => {
-  calMonth--;
-  if (calMonth < 1) { calMonth = 12; calYear--; }
+  if (--state.calMonth < 1) { state.calMonth = 12; state.calYear--; }
   renderCalendar();
 });
 document.getElementById('cal-next').addEventListener('click', () => {
-  calMonth++;
-  if (calMonth > 12) { calMonth = 1; calYear++; }
+  if (++state.calMonth > 12) { state.calMonth = 1; state.calYear++; }
   renderCalendar();
 });
 
-// ── ALL SORTIES ───────────────────────────────────────────────
+function initCalendar() {
+  buildCalLegend();
+  renderCalendar();
+}
+
+// ── ALL SORTIES page ───────────────────────────────────────────
 function buildAllParams(overrides = {}) {
-  const params = new URLSearchParams({ sort: 'date', page: allPage, page_size: 30 });
-  if (currentCat)   params.set('category', currentCat);
-  if (currentVenue) params.set('venue', currentVenue);
-  if (searchQuery)  params.set('search', searchQuery);
+  const params = new URLSearchParams({ sort: 'date', page: state.allPage, page_size: 30 });
+  if (state.cat)    params.set('category', state.cat);
+  if (state.venue)  params.set('venue', state.venue);
+  if (state.search) params.set('search', state.search);
   Object.entries(overrides).forEach(([k,v]) => params.set(k, v));
   return params;
 }
 
 async function loadAllPage(overrides = {}) {
-  allPage = 1;
-  const rows = document.getElementById('all-rows');
+  state.allPage = 1;
+  const wrap = document.getElementById('all-rows');
   const meta = document.getElementById('all-meta');
-  rows.innerHTML = '';
+  wrap.innerHTML = '';
   try {
-    const params = buildAllParams(overrides);
-    const data = await api('/events?' + params.toString());
-    const items = data.items ?? data;
-    meta.textContent = `${data.total ?? items.length} événement${(data.total ?? items.length) > 1 ? 's' : ''}`;
-    rows.innerHTML = items.map(buildRow).join('');
+    const data = await api('/events?' + buildAllParams(overrides));
+    const items = data.items ?? [];
+    const total = data.total ?? items.length;
+    meta.textContent = `${total} événement${total !== 1 ? 's' : ''}`;
+    wrap.innerHTML = items.map(buildRow).join('');
     const btn = document.getElementById('btn-more-all');
-    if ((data.pages ?? 1) > 1) btn.classList.remove('hidden');
-    else btn.classList.add('hidden');
+    btn.classList.toggle('hidden', (data.pages ?? 1) <= 1);
   } catch {
-    rows.innerHTML = '<p class="empty-state">Impossible de charger.</p>';
+    wrap.innerHTML = '<p class="empty-state">Impossible de charger.</p>';
   }
 }
 
-// ── EVENT DETAIL ─────────────────────────────────────────────
-async function loadEventDetail(id) {
+document.getElementById('btn-more-all').addEventListener('click', async function() {
+  state.allPage++;
+  const data = await api('/events?' + buildAllParams());
+  document.getElementById('all-rows')
+    .insertAdjacentHTML('beforeend', (data.items ?? []).map(buildRow).join(''));
+  if (state.allPage >= (data.pages ?? 1)) this.classList.add('hidden');
+});
+
+// ── EVENT DETAIL page ──────────────────────────────────────────
+async function loadEvent(id) {
   const wrap = document.getElementById('event-detail');
   wrap.innerHTML = '<p class="empty-state">Chargement…</p>';
   try {
@@ -605,21 +507,25 @@ async function loadEventDetail(id) {
     const color = catColor(ev.category);
     const price = fmtPrice(ev.price);
     wrap.innerHTML = `
-    <div class="event-detail-card">
-      ${ev.image_url ? `<img class="event-detail-img" src="${ev.image_url}" alt="${ev.title}" />` : `<div style="height:120px;background:linear-gradient(135deg,${color}33,${color}11)"></div>`}
-      <div class="event-detail-body">
-        <div class="event-detail-badges">
+    <div class="detail-card">
+      ${ev.image_url
+        ? `<img class="detail-img" src="${ev.image_url}" alt="${ev.title}">`
+        : `<div class="detail-img-fallback" style="background:linear-gradient(135deg,${color}44,${color}11)"></div>`}
+      <div class="detail-body">
+        <div class="detail-badges">
           ${ev.category ? badgeCat(ev.category) : ''}
-          ${ev.is_new ? badgeNew() : ''}
+          ${ev.is_new ? '<span class="badge-new">NOUVEAU</span>' : ''}
         </div>
-        <h1 class="event-detail-title">${ev.title}</h1>
-        <div class="event-detail-meta">
-          <div class="event-detail-meta-row">${iconCal()} <strong>${fmtDateFull(ev.date)}</strong></div>
-          <div class="event-detail-meta-row">${iconPin()} ${ev.venue}</div>
-          ${price ? `<div class="event-detail-meta-row">🎟 <strong>${price}</strong></div>` : ''}
+        <h1 class="detail-title">${ev.title}</h1>
+        <div class="detail-metas">
+          <div class="detail-meta">${ICO_CAL} <strong>${fmtDateTime(ev.date)}</strong></div>
+          <div class="detail-meta">${ICO_PIN} ${ev.venue}</div>
+          ${price ? `<div class="detail-meta">🎟 <strong>${price}</strong></div>` : ''}
         </div>
-        ${ev.description ? `<p class="event-detail-desc">${ev.description}</p>` : ''}
-        ${ev.booking_url ? `<a class="event-detail-cta" href="${ev.booking_url}" target="_blank" rel="noopener">Réserver ${iconArrow()}</a>` : ''}
+        ${ev.description ? `<p class="detail-desc">${ev.description}</p>` : ''}
+        ${ev.booking_url
+          ? `<a class="btn-cta" href="${ev.booking_url}" target="_blank" rel="noopener">Réserver ${ICO_ARR}</a>`
+          : ''}
       </div>
     </div>`;
   } catch {
@@ -629,24 +535,36 @@ async function loadEventDetail(id) {
 
 document.getElementById('btn-back').addEventListener('click', () => history.back());
 
-// ── Router ────────────────────────────────────────────────────
-let prevPage = null;
+// ── Router ─────────────────────────────────────────────────────
+const PAGES = ['radar','calendrier','sorties','event'];
+let  prevPage = null;
+
+function getRoute() {
+  const hash = location.hash.replace(/^#\/?/, '');
+  const [page, ...rest] = hash.split('/');
+  return { page: PAGES.includes(page) ? page : 'radar', param: rest[0] ?? null };
+}
+function navigate(path) { location.hash = '#/' + path; }
+function setActiveNav(page) {
+  document.querySelectorAll('.nav-link').forEach(el =>
+    el.classList.toggle('active', el.dataset.route === page)
+  );
+}
+
+// Delegated click: card or row → detail
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-id]');
+  if (el && !e.target.closest('a')) navigate('event/' + el.dataset.id);
+});
 
 async function route() {
   const { page, param } = getRoute();
-
-  // Hide all pages
   document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
   setActiveNav(page);
 
   if (page === 'radar') {
     document.getElementById('page-radar').classList.remove('hidden');
-    if (prevPage !== 'radar') {
-      await loadNewBanner();
-      await loadRadar();
-      const pillWrap = document.getElementById('category-pills');
-      styleActivePill(pillWrap);
-    }
+    if (prevPage !== 'radar') await loadRadar();
 
   } else if (page === 'calendrier') {
     document.getElementById('page-calendrier').classList.remove('hidden');
@@ -654,11 +572,11 @@ async function route() {
 
   } else if (page === 'sorties') {
     document.getElementById('page-sorties').classList.remove('hidden');
-    if (prevPage !== 'sorties') loadAllPage();
+    if (prevPage !== 'sorties') await loadAllPage();
 
   } else if (page === 'event') {
     document.getElementById('page-event').classList.remove('hidden');
-    loadEventDetail(param);
+    await loadEvent(param);
   }
 
   prevPage = page;
@@ -666,10 +584,15 @@ async function route() {
 
 window.addEventListener('hashchange', route);
 
-// ── Bootstrap ─────────────────────────────────────────────────
+// ── Init ────────────────────────────────────────────────────────
 (async function init() {
   initTheme();
-  await Promise.all([loadStats(), loadVenues(), loadCategoryPills()]);
-  if (!location.hash || location.hash === '#') location.hash = '#/radar';
-  route();
+  await Promise.all([refreshNavbar(), populateVenueSelect(), populateCategoryPills()]);
+  // Activate "Tout" pill
+  const allPill = document.querySelector('#category-pills .pill[data-cat=""]');
+  if (allPill) { allPill.classList.add('active'); applyPillStyles(); }
+  if (!location.hash || location.hash === '#' || location.hash === '#/') {
+    location.hash = '#/radar';
+  }
+  await route();
 })();
