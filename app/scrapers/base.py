@@ -1,14 +1,16 @@
+from __future__ import annotations
+
 import hashlib
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
-from typing import ClassVar, Optional
+from typing import ClassVar, Dict, Optional, Type
 
 logger = logging.getLogger(__name__)
 
 # Auto-registry: populated by __init_subclass__ on every concrete scraper
-_SCRAPER_REGISTRY: dict[str, type["BaseScraper"]] = {}
+_SCRAPER_REGISTRY: Dict[str, Type[BaseScraper]] = {}
 
 
 @dataclass

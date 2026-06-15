@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 Scraper for Le Cargö — https://lecargo.fr/programmation/
 

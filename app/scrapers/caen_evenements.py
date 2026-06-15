@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 Scraper for Caen Événements (Centre des Congrès) — https://www.caen-evenements.com/agenda/
 

@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 Scraper for Palais des Sports de Caen — https://caenlamer.fr/palais-des-sports
 

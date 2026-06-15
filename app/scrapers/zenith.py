@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 Scraper for Zénith de Caen — https://zenith-caen.fr/
 

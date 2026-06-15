@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 Scraper de démonstration — renvoie des données fictives sans aucun accès réseau.
 Utile pour tester l'interface, le pipeline d'upsert et les notifications ntfy.
