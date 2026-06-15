@@ -1,115 +1,96 @@
 """
-Scraper for Caen Événements (Centre des Congrès) — https://www.caen-evenements.com/agenda/
+Scraper for Caen Événements (Palais des Congrès) — https://www.caen-evenements.com
 
-This site aggregates events for the Caen congress center and other venues.
-Selector notes:
-  - Event cards:   .event, article, .agenda-item
-  - Title:         h2, h3, .event-title
-  - Date:          time[datetime], .event-date, .date
-  - Booking:       a[href*='reservation'], a.btn
+HTML structure (observed, schema.org markup):
+  div.ce_results-list > div.row > div.col-md-4 >
+    div[itemscope itemtype="//schema.org/Event"]
+      a.ce-events-item[href]
+        div.ce-image > img[src]
+        div.ce-events-item-text
+          div.ce-events-item-text-date
+            span.is-date           — "25 <span>Juin</span>"
+            time[itemprop=startDate][content="2026-06-25"]
+          h2.ce-events-item-text-desc[itemprop=name]   — title
+          p.ce-events-item-text-place
+            span[itemprop=name]    — venue name
 """
+from __future__ import annotations
 
-import re
+import logging
+from datetime import datetime
 from bs4 import BeautifulSoup
+
 from .base import BaseScraper, RawEvent
-from .theatre_ouest import _parse_french_date
+
+logger = logging.getLogger(__name__)
 
 
 class CaenEvenementsScraper(BaseScraper):
-    venue_name = "Centre des Congrès de Caen"
-    venue_key = "caen_evenements"
-    base_url = "https://www.caen-evenements.com"
-    list_url = "https://www.caen-evenements.com/agenda/"
+    venue_name     = "Caen Événements"
+    venue_key      = "caen_evenements"
+    base_url       = "https://www.caen-evenements.com"
+    list_url       = "https://www.caen-evenements.com/evenements/"
+    use_playwright = False
 
     async def _scrape(self) -> list[RawEvent]:
-        html = await self._get_page(self.list_url, wait_for=".event, article, .agenda")
+        html = self._get_page_requests(self.list_url)
         soup = BeautifulSoup(html, "html.parser")
-        events = []
+        events: list[RawEvent] = []
 
-        cards = (
-            soup.select(".event-item")
-            or soup.select(".agenda-item")
-            or soup.select(".event")
-            or soup.select("article")
-        )
-
-        for card in cards:
+        for card in soup.select("div[itemscope][itemtype*='schema.org/Event']"):
             try:
-                title_el = (
-                    card.select_one("h2")
-                    or card.select_one("h3")
-                    or card.select_one(".event-title")
-                    or card.select_one(".title")
-                )
+                # Title
+                title_el = card.select_one("h2[itemprop=name]") or card.select_one("h2")
                 if not title_el:
                     continue
-                title = title_el.get_text(strip=True)
-                if len(title) < 2:
+                title = title_el.get_text(strip=True).strip('" ')
+                if not title:
                     continue
 
-                date = None
-                time_el = card.select_one("time[datetime]")
-                if time_el:
-                    date = _parse_french_date(time_el.get("datetime", ""))
-                if not date:
-                    date_el = card.select_one(".date, .event-date, .date-event")
-                    if date_el:
-                        date = _parse_french_date(date_el.get_text())
-                if not date:
+                # Date — prefer ISO content attribute
+                time_el = card.select_one("time[itemprop=startDate][content]")
+                if not time_el:
+                    time_el = card.select_one("time[content]")
+                if not time_el:
+                    continue
+                content = time_el.get("content", "")
+                try:
+                    dt = datetime.fromisoformat(content)
+                except Exception:
                     continue
 
-                time_str = None
-                if time_el:
-                    t = time_el.get_text(strip=True)
-                    m = re.search(r"\d{1,2}[h:]\d{0,2}", t)
-                    if m:
-                        time_str = m.group(0)
-
-                link_el = card.select_one("a[href]")
+                # Event URL
+                link_el = card.select_one("a.ce-events-item[href]")
                 event_url = None
                 if link_el:
                     href = link_el["href"]
                     event_url = href if href.startswith("http") else self.base_url + href
 
-                booking_el = card.select_one(
-                    "a[href*='reservation'], a[href*='billet'], "
-                    "a[href*='ticketmaster'], a[href*='fnac'], "
-                    "a.btn-reservation, a.reserver"
-                )
-                booking_url = None
-                if booking_el:
-                    href = booking_el["href"]
-                    booking_url = href if href.startswith("http") else self.base_url + href
-                elif event_url:
-                    booking_url = event_url
-
-                img_el = card.select_one("img")
+                # Image
+                img_el = card.select_one("div.ce-image img")
                 image_url = None
                 if img_el:
-                    src = img_el.get("src") or img_el.get("data-src", "")
+                    src = img_el.get("src") or img_el.get("data-src") or img_el.get("data-lazy-src", "")
                     if src:
                         image_url = src if src.startswith("http") else self.base_url + src
 
-                # Venue info may be present on aggregator
-                venue_el = card.select_one(".venue, .lieu, .location")
-                venue_extra = venue_el.get_text(strip=True) if venue_el else ""
-                display_venue = (
-                    f"{self.venue_name} — {venue_extra}" if venue_extra else self.venue_name
-                )
+                # Venue name from schema
+                venue_el = card.select_one("span[itemprop=name]")
+                venue_name = venue_el.get_text(strip=True) if venue_el else self.venue_name
 
                 events.append(RawEvent(
                     title=title,
-                    venue=display_venue,
+                    venue=venue_name or self.venue_name,
                     venue_key=self.venue_key,
-                    date=date,
-                    time=time_str,
+                    date=dt,
                     event_url=event_url,
-                    booking_url=booking_url,
+                    booking_url=event_url,
                     image_url=image_url,
                     category="Événement",
-                    external_id=self._make_external_id(title, date.date()),
+                    external_id=self._make_external_id(title, dt.date()),
                 ))
-            except Exception:
+            except Exception as exc:
+                logger.debug(f"[caen_evenements] skip item: {exc}")
                 continue
 
         return events
