@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, date, timedelta
-from typing import Optional
+from typing import Dict, List, Optional
 
 from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -74,7 +74,7 @@ class EventOut(BaseModel):
 
 
 class PaginatedEvents(BaseModel):
-    items: list[EventOut]
+    items: List[EventOut]
     total: int
     page: int
     page_size: int
@@ -94,7 +94,7 @@ class CategoryOut(BaseModel):
 
 class CalendarDay(BaseModel):
     date: str          # YYYY-MM-DD
-    events: list[EventOut]
+    events: List[EventOut]
 
 
 class StatsOut(BaseModel):
@@ -205,7 +205,7 @@ def get_events(
 
 @app.get(
     "/api/events/new",
-    response_model=list[EventOut],
+    response_model=List[EventOut],
     summary="Événements récemment ajoutés",
     tags=["Événements"],
 )
@@ -226,7 +226,7 @@ def get_new_events(
 
 @app.get(
     "/api/events/weekend",
-    response_model=list[EventOut],
+    response_model=List[EventOut],
     summary="Événements du prochain week-end",
     tags=["Événements"],
 )
@@ -262,7 +262,7 @@ def get_event(event_id: int, db: Session = Depends(get_db)):
 
 @app.get(
     "/api/categories",
-    response_model=list[CategoryOut],
+    response_model=List[CategoryOut],
     summary="Catégories avec compteurs",
     tags=["Référentiels"],
 )
@@ -280,7 +280,7 @@ def get_categories(db: Session = Depends(get_db)):
 
 @app.get(
     "/api/venues",
-    response_model=list[VenueOut],
+    response_model=List[VenueOut],
     summary="Salles avec compteurs",
     tags=["Référentiels"],
 )
@@ -298,7 +298,7 @@ def get_venues(db: Session = Depends(get_db)):
 
 @app.get(
     "/api/calendar",
-    response_model=list[CalendarDay],
+    response_model=List[CalendarDay],
     summary="Événements groupés par jour pour un mois",
     tags=["Calendrier"],
 )
@@ -322,7 +322,7 @@ def get_calendar(
         query = query.filter(func.lower(Event.category) == category.lower())
     events = query.order_by(Event.date.asc()).all()
 
-    grouped: dict[str, list[Event]] = {}
+    grouped: Dict[str, List[Event]] = {}
     for ev in events:
         key = ev.date.strftime("%Y-%m-%d")
         grouped.setdefault(key, []).append(ev)
@@ -373,7 +373,7 @@ async def trigger_scrape(
 
 # ── Compat routes (ancienne API) ──────────────────────────────────────────────
 
-@app.get("/api/scrape/logs", response_model=list[ScrapeLogOut], include_in_schema=False)
+@app.get("/api/scrape/logs", response_model=List[ScrapeLogOut], include_in_schema=False)
 def get_scrape_logs(limit: int = 50, db: Session = Depends(get_db)):
     return db.query(ScrapeLog).order_by(ScrapeLog.scraped_at.desc()).limit(limit).all()
 
