@@ -135,6 +135,8 @@
 
     <!-- PAGE CALENDRIER -->
     <div id="page-calendrier" class="page hidden">
+
+      <!-- En-tête : navigation + légende -->
       <div class="cal-head">
         <h2 class="cal-month-label" id="cal-month-label"></h2>
         <div class="cal-nav">
@@ -143,11 +145,46 @@
         </div>
         <div class="cal-legend" id="cal-legend"></div>
       </div>
-      <div class="cal-days-header">
-        <span>LUN</span><span>MAR</span><span>MER</span>
-        <span>JEU</span><span>VEN</span><span>SAM</span><span>DIM</span>
+
+      <!-- Filtres cal -->
+      <div class="cal-filters">
+        <div class="sel-wrap">
+          <select id="cal-filter-cat" class="sel">
+            <option value="">Toutes catégories</option>
+          </select>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
+        </div>
+        <div class="sel-wrap">
+          <select id="cal-filter-venue" class="sel">
+            <option value="">Toutes les salles</option>
+          </select>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
+        </div>
       </div>
-      <div class="cal-grid" id="cal-grid"></div>
+
+      <!-- Corps : grille + panneau jour -->
+      <div class="cal-body" id="cal-body">
+        <div class="cal-grid-wrap">
+          <div class="cal-days-header">
+            <span>LUN</span><span>MAR</span><span>MER</span>
+            <span>JEU</span><span>VEN</span><span>SAM</span><span>DIM</span>
+          </div>
+          <div class="cal-grid" id="cal-grid"></div>
+        </div>
+
+        <!-- Panneau jour (desktop: sidebar, mobile: liste sous la grille) -->
+        <aside class="cal-day-panel hidden" id="cal-day-panel">
+          <div class="cal-day-panel-head">
+            <span class="cal-day-panel-title" id="cal-day-panel-title"></span>
+            <button class="cal-day-panel-close" id="cal-day-panel-close">✕</button>
+          </div>
+          <div class="list-rows" id="cal-day-events"></div>
+        </aside>
+      </div>
+
+      <!-- Vue liste mobile (cachée sur desktop) -->
+      <div class="cal-mobile-list hidden" id="cal-mobile-list"></div>
+
     </div>
 
     <!-- PAGE TOUTES LES SORTIES -->

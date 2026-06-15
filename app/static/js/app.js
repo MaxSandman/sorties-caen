@@ -382,10 +382,11 @@ async function loadRadar() {
 }
 
 // ── CALENDAR page ──────────────────────────────────────────────
+const calState = { cat: '', venue: '', activeDate: null, byDay: {} };
+
 function buildCalLegend() {
   const wrap = document.getElementById('cal-legend');
   wrap.innerHTML = '';
-  // Deduplicate (théâtre/theatre)
   const seen = new Set();
   Object.entries(CAT_COLORS).forEach(([name, color]) => {
     if (seen.has(color)) return;
@@ -396,69 +397,168 @@ function buildCalLegend() {
   });
 }
 
+function populateCalFilters() {
+  // Category select
+  const catSel = document.getElementById('cal-filter-cat');
+  const seen = new Set();
+  Object.entries(CAT_COLORS).forEach(([name]) => {
+    const norm = name === 'theatre' ? null : name; // skip alias
+    if (!norm || seen.has(norm)) return;
+    seen.add(norm);
+    const o = document.createElement('option');
+    o.value = norm;
+    o.textContent = norm.charAt(0).toUpperCase() + norm.slice(1);
+    catSel.appendChild(o);
+  });
+
+  // Venue select — clone options from radar venue select
+  const venueSel = document.getElementById('cal-filter-venue');
+  document.querySelectorAll('#filter-venue option').forEach(o => {
+    venueSel.appendChild(o.cloneNode(true));
+  });
+
+  catSel.addEventListener('change', function() {
+    calState.cat = this.value;
+    closeCalPanel();
+    renderCalendar();
+  });
+  venueSel.addEventListener('change', function() {
+    calState.venue = this.value;
+    closeCalPanel();
+    renderCalendar();
+  });
+}
+
+function filterCalEvents(evts) {
+  let f = evts;
+  if (calState.cat)   f = f.filter(e => e.category?.toLowerCase() === calState.cat);
+  if (calState.venue) f = f.filter(e => e.venue_key === calState.venue);
+  return f;
+}
+
 async function renderCalendar() {
   const mm = String(state.calMonth).padStart(2, '0');
-  const monthName = MONTHS[state.calMonth-1];
+  const monthName = MONTHS[state.calMonth - 1];
   document.getElementById('cal-month-label').textContent =
     `${monthName.charAt(0).toUpperCase() + monthName.slice(1)} ${state.calYear}`;
 
-  let days = [];
-  try { days = await api(`/calendar?month=${state.calYear}-${mm}`); } catch {}
-  const byDay = Object.fromEntries(days.map(d => [d.date, d.events]));
-
+  // Loading indicator
   const grid = document.getElementById('cal-grid');
+  grid.style.opacity = '.4';
+
+  let days = [];
+  try {
+    const params = new URLSearchParams({ month: `${state.calYear}-${mm}` });
+    if (calState.venue) params.set('venue', calState.venue);
+    if (calState.cat)   params.set('category', calState.cat);
+    days = await api('/calendar?' + params);
+  } catch {}
+
+  calState.byDay = Object.fromEntries(days.map(d => [d.date, d.events]));
+  grid.style.opacity = '';
   grid.innerHTML = '';
 
-  const firstDow = new Date(state.calYear, state.calMonth-1, 1).getDay();
+  const firstDow = new Date(state.calYear, state.calMonth - 1, 1).getDay();
   const offset   = firstDow === 0 ? 6 : firstDow - 1;
   const dimMonth = new Date(state.calYear, state.calMonth, 0).getDate();
-  const prevDim  = new Date(state.calYear, state.calMonth-1, 0).getDate();
-  const today    = new Date().toISOString().slice(0,10);
+  const prevDim  = new Date(state.calYear, state.calMonth - 1, 0).getDate();
+  const today    = new Date().toISOString().slice(0, 10);
 
   const cells = [];
-  for (let i = offset-1; i >= 0; i--) cells.push({ day: prevDim-i, date: null, other: true });
+  for (let i = offset - 1; i >= 0; i--) cells.push({ day: prevDim - i, date: null, other: true });
   for (let d = 1; d <= dimMonth; d++) {
-    cells.push({ day: d, date: `${state.calYear}-${mm}-${String(d).padStart(2,'0')}`, other: false });
+    cells.push({ day: d, date: `${state.calYear}-${mm}-${String(d).padStart(2, '0')}`, other: false });
   }
   const rem = (7 - cells.length % 7) % 7;
   for (let d = 1; d <= rem; d++) cells.push({ day: d, date: null, other: true });
 
   cells.forEach(({ day, date, other }) => {
-    const evts = date ? (byDay[date] ?? []) : [];
+    const evts = date ? (calState.byDay[date] ?? []) : [];
+    const isActive = date && date === calState.activeDate;
     const cell = document.createElement('div');
-    cell.className = ['cal-cell',
-      other      ? 'other-month' : '',
+    cell.className = [
+      'cal-cell',
+      other         ? 'other-month' : '',
       date === today ? 'today' : '',
-      evts.length    ? 'has-events' : '',
+      evts.length   ? 'has-events' : '',
+      isActive      ? 'active-day' : '',
     ].filter(Boolean).join(' ');
 
-    const chips = evts.slice(0,3).map(ev => {
+    const chips = evts.slice(0, 3).map(ev => {
       const c = catColor(ev.category);
       return `<span class="cal-chip" style="background:${c}22;color:${c}">${ev.title}</span>`;
-    }).join('') + (evts.length > 3 ? `<span class="cal-chip muted">+${evts.length-3}</span>` : '');
+    }).join('') + (evts.length > 3
+      ? `<span class="cal-chip cal-chip-more">+${evts.length - 3}</span>` : '');
 
     cell.innerHTML = `<div class="cal-num">${day}</div>${chips}`;
+
     if (evts.length && date) {
-      cell.addEventListener('click', () => {
-        navigate('sorties');
-        setTimeout(() => loadAllPage({ date_from: date, date_to: date }), 60);
-      });
+      cell.addEventListener('click', () => openCalPanel(date, evts));
     }
     grid.appendChild(cell);
   });
+
+  // Mobile list view
+  renderCalMobileList();
+}
+
+function openCalPanel(date, evts) {
+  calState.activeDate = date;
+
+  // Highlight active cell
+  document.querySelectorAll('.cal-cell').forEach(c =>
+    c.classList.toggle('active-day', c.querySelector('.cal-num')?.textContent == new Date(date + 'T12:00').getDate())
+  );
+
+  const panel = document.getElementById('cal-day-panel');
+  const title = document.getElementById('cal-day-panel-title');
+  const list  = document.getElementById('cal-day-events');
+
+  const d = new Date(date + 'T12:00');
+  title.textContent = `${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`;
+  list.innerHTML = evts.map(buildRow).join('') || '<p class="empty-state">Aucun événement.</p>';
+  panel.classList.remove('hidden');
+  document.getElementById('cal-body')?.classList.add('panel-open');
+}
+
+function closeCalPanel() {
+  calState.activeDate = null;
+  document.getElementById('cal-day-panel').classList.add('hidden');
+  document.getElementById('cal-body')?.classList.remove('panel-open');
+  document.querySelectorAll('.cal-cell.active-day').forEach(c => c.classList.remove('active-day'));
+}
+
+document.getElementById('cal-day-panel-close').addEventListener('click', closeCalPanel);
+
+function renderCalMobileList() {
+  const wrap = document.getElementById('cal-mobile-list');
+  if (!wrap) return;
+  const entries = Object.entries(calState.byDay).sort(([a], [b]) => a.localeCompare(b));
+  if (entries.length === 0) {
+    wrap.innerHTML = '<p class="empty-state">Aucun événement ce mois.</p>';
+    return;
+  }
+  wrap.innerHTML = entries.map(([date, evts]) => {
+    const d = new Date(date + 'T12:00');
+    const header = `<div class="cal-list-day-header">${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}</div>`;
+    return header + evts.map(buildRow).join('');
+  }).join('');
 }
 
 document.getElementById('cal-prev').addEventListener('click', () => {
   if (--state.calMonth < 1) { state.calMonth = 12; state.calYear--; }
+  closeCalPanel();
   renderCalendar();
 });
 document.getElementById('cal-next').addEventListener('click', () => {
   if (++state.calMonth > 12) { state.calMonth = 1; state.calYear++; }
+  closeCalPanel();
   renderCalendar();
 });
 
 function initCalendar() {
   buildCalLegend();
+  populateCalFilters();
   renderCalendar();
 }
 
