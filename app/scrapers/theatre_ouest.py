@@ -1,4 +1,3 @@
-from __future__ import annotations
 """
 Scraper for Théâtre à l'Ouest — https://theatrealouest.com/caen/spectacle/liste?sort=date-ASC
 

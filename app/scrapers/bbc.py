@@ -1,4 +1,3 @@
-from __future__ import annotations
 """
 Scraper for Le BBC (Big Band Café) — https://bigbandcafe.com/concerts/
 
