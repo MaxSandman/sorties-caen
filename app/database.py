@@ -3,7 +3,9 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime
 
-DATABASE_URL = "sqlite:///./sorties_caen.db"
+import os
+_db_path = os.getenv("DATABASE_PATH", "./sorties_caen.db")
+DATABASE_URL = f"sqlite:///{_db_path}"
 
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
