@@ -367,6 +367,10 @@ async def trigger_scrape(
     client_host = request.client.host if request.client else ""
     if client_host not in ("127.0.0.1", "::1", "localhost"):
         raise HTTPException(status_code=403, detail="Scrape manuel réservé au réseau local")
+    import os as _os
+    scrapers_enabled = _os.getenv("SCRAPERS_ENABLED", "1").strip().lower() not in ("0", "false", "no")
+    if not scrapers_enabled:
+        raise HTTPException(status_code=503, detail="Scrapers désactivés (SCRAPERS_ENABLED=0)")
     background_tasks.add_task(run_all_scrapers, venue_key=venue_key)
     return ScrapeRunOut(status="started", venue_key=venue_key or "all")
 

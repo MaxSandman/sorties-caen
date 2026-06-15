@@ -6,8 +6,11 @@ services:
       - "8000:8000"
     volumes:
       - ./data:/app/data
+    shm_size: '256mb'
     environment:
       - NTFY_TOPIC=${NTFY_TOPIC:-}
       - APP_BASE_URL=${APP_BASE_URL:-http://localhost:8000}
       - DATABASE_PATH=/app/data/sorties_caen.db
+      - DEMO_SCRAPER=${DEMO_SCRAPER:-0}
+      - SCRAPERS_ENABLED=${SCRAPERS_ENABLED:-0}
     restart: unless-stopped
