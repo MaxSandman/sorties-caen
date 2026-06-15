@@ -4,15 +4,18 @@
 
 // ── Design tokens ─────────────────────────────────────────────
 const CAT_COLORS = {
-  musique:  '#7C5CFB',
-  théâtre:  '#E5484D',
-  theatre:  '#E5484D',
-  humour:   '#F5A524',
-  danse:    '#E93D82',
-  expo:     '#2F9CF4',
-  enfants:  '#30A46C',
-  sport:    '#F76808',
-  brocante: '#12A594',
+  musique:    '#7C5CFB',
+  théâtre:    '#E5484D',
+  theatre:    '#E5484D',
+  humour:     '#F5A524',
+  danse:      '#E93D82',
+  expo:       '#2F9CF4',
+  enfants:    '#30A46C',
+  sport:      '#F76808',
+  brocante:   '#12A594',
+  marché:     '#12A594',
+  marche:     '#12A594',
+  autre:      '#93A0B8',
 };
 
 function catColor(cat) {
@@ -61,6 +64,38 @@ function fmtPrice(p) {
   if (['gratuit','free','0','0€','0 €','entrée libre','libre'].includes(l)) return 'Gratuit';
   return p;
 }
+function fmtDateOnly(iso) {
+  const d = new Date(iso);
+  return `${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`;
+}
+function fmtTimeIfKnown(iso) {
+  const d = new Date(iso);
+  if (d.getHours() === 0 && d.getMinutes() === 0) return null;
+  return `${d.getHours()}h${String(d.getMinutes()).padStart(2,'0')}`;
+}
+function fmtDateSmart(iso) {
+  const t = fmtTimeIfKnown(iso);
+  return t ? `${fmtDateOnly(iso)} · ${t}` : fmtDateOnly(iso);
+}
+function splitTitle(ev) {
+  if (ev.artist) return { name: ev.artist, subtitle: ev.title };
+  const m = ev.title.match(/^(.+?)\s[–—]\s(.+)$/) || ev.title.match(/^(.+?):\s(.+)$/);
+  if (m) return { name: m[1].trim(), subtitle: m[2].trim() };
+  return { name: ev.title, subtitle: '' };
+}
+function bookingProvider(url) {
+  if (!url) return '';
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, '');
+    if (host.includes('weezevent'))    return 'Weezevent';
+    if (host.includes('ticketmaster')) return 'Ticketmaster';
+    if (host.includes('fnac'))         return 'Fnac';
+    if (host.includes('digitick'))     return 'Digitick';
+    if (host.includes('helloasso'))    return 'HelloAsso';
+    if (host.includes('shotgun'))      return 'Shotgun';
+    return '';
+  } catch { return ''; }
+}
 
 // ── SVG icons ─────────────────────────────────────────────────
 const ICO_CAL  = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
@@ -73,34 +108,69 @@ function badgeCat(cat) {
   return `<span class="badge-cat" style="--cat-color:${c}">${cat}</span>`;
 }
 
-function buildCard(ev) {
-  const color = catColor(ev.category);
-  const price = fmtPrice(ev.price);
-  const isNew = ev.is_new;
+function buildCardA(ev) {
+  const color   = catColor(ev.category);
+  const price   = fmtPrice(ev.price);
+  const { name, subtitle } = splitTitle(ev);
+  const dateStr = fmtDateSmart(ev.date);
 
   const imgPart = ev.image_url
-    ? `<img src="${ev.image_url}" alt="" loading="lazy" /><div class="card-img-overlay"></div>`
-    : `<div class="card-img-fallback" style="background:linear-gradient(135deg,${color}55 0%,${color}11 100%)"></div>`;
+    ? `<img src="${ev.image_url}" alt="" loading="lazy">`
+    : `<div class="card-a-fallback" style="background:linear-gradient(160deg,${color}44 0%,${color}11 100%)">
+         <span class="card-a-initial" style="color:${color}22">${name.charAt(0).toUpperCase()}</span>
+       </div>`;
 
-  return `<div class="card" data-id="${ev.id}">
-    <div class="card-visual">
+  return `<div class="card-a" data-id="${ev.id}">
+    <div class="card-a-poster">
       ${imgPart}
-      <div class="card-top-badges">
+      <div class="card-a-badges">
         ${ev.category ? badgeCat(ev.category) : ''}
-        ${isNew ? '<span class="badge-new">NOUVEAU</span>' : ''}
+        ${ev.is_new ? '<span class="badge-new">NOUVEAU</span>' : ''}
       </div>
     </div>
-    <div class="card-body">
-      <span class="card-added">${fmtRelative(ev.first_seen)}</span>
-      <h3 class="card-title">${ev.title}</h3>
-      <div class="card-meta">${ICO_CAL} ${fmtDateTime(ev.date)}</div>
-      <div class="card-meta">${ICO_PIN} ${ev.venue}</div>
+    <div class="card-a-body">
+      <div class="card-a-name">${name}</div>
+      ${subtitle ? `<div class="card-a-subtitle">${subtitle}</div>` : ''}
+      <div class="card-a-meta">${ICO_CAL} ${dateStr}</div>
+      <div class="card-a-meta">${ICO_PIN} ${ev.venue}</div>
     </div>
-    <div class="card-footer">
-      <span class="card-price${price === 'Gratuit' ? ' is-free' : ''}">${price || '—'}</span>
+    <div class="card-a-footer">
+      <span class="card-a-price${price === 'Gratuit' ? ' is-free' : ''}">${price || '—'}</span>
       ${ev.booking_url
         ? `<a class="card-book" href="${ev.booking_url}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Billetterie ${ICO_ARR}</a>`
         : ''}
+    </div>
+  </div>`;
+}
+
+function buildCardB(ev) {
+  const color   = catColor(ev.category);
+  const price   = fmtPrice(ev.price);
+  const { name, subtitle } = splitTitle(ev);
+  const dateStr = fmtDateSmart(ev.date);
+
+  const imgPart = ev.image_url
+    ? `<img src="${ev.image_url}" alt="" loading="lazy">`
+    : `<div class="card-b-fallback" style="background:linear-gradient(160deg,${color}44 0%,${color}11 100%)">
+         <span class="card-b-initial" style="color:${color}22">${name.charAt(0).toUpperCase()}</span>
+       </div>`;
+
+  return `<div class="card-b" data-id="${ev.id}">
+    <div class="card-b-poster">
+      ${imgPart}
+      ${ev.is_new ? '<span class="badge-new card-b-badge-new">NOUVEAU</span>' : ''}
+    </div>
+    <div class="card-b-body">
+      ${ev.category ? `<div class="card-b-eyebrow" style="color:${color}">${ev.category}</div>` : ''}
+      <div class="card-b-name">${name}</div>
+      ${subtitle ? `<div class="card-b-subtitle">${subtitle}</div>` : ''}
+      <div class="card-b-meta">${ICO_CAL} ${dateStr} · ${ICO_PIN} ${ev.venue}</div>
+      <div class="card-b-footer">
+        <span class="card-b-price${price === 'Gratuit' ? ' is-free' : ''}">${price || ''}</span>
+        ${ev.booking_url
+          ? `<a class="card-b-book" href="${ev.booking_url}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Billetterie ${ICO_ARR}</a>`
+          : ''}
+      </div>
     </div>
   </div>`;
 }
@@ -403,7 +473,7 @@ function renderNewSection() {
     : state.newItems; // already sorted by first_seen desc from API
 
   const shown = items.slice(0, state.newShown);
-  document.getElementById('new-cards').innerHTML = shown.map(buildCard).join('');
+  document.getElementById('new-cards').innerHTML = shown.map(buildCardA).join('');
   document.getElementById('new-meta').textContent =
     `triées par ${state.sort === 'added' ? "date d'ajout" : "date de l'événement"} · ${items.length} résultat${items.length !== 1 ? 's' : ''}`;
 
@@ -434,7 +504,7 @@ async function loadWeekend() {
       empty.classList.remove('hidden');
     } else {
       empty.classList.add('hidden');
-      grid.innerHTML = items.map(buildCard).join('');
+      grid.innerHTML = items.map(buildCardA).join('');
       // Date range label
       const d0 = new Date(items[0].date), d1 = new Date(items[items.length-1].date);
       meta.textContent = `${DAYS[d0.getDay()]} ${d0.getDate()} — ${DAYS[d1.getDay()]} ${d1.getDate()} ${MONTHS[d1.getMonth()]}`;
@@ -474,6 +544,47 @@ function refreshRadar() {
   loadWeekend();
   loadUpcoming();
 }
+
+// ── NOUVEAUTÉS page ────────────────────────────────────────────
+const nouvState = { sort: 'added', items: [], shown: 8 };
+
+async function loadNouveautes() {
+  const wrap = document.getElementById('nouv-cards');
+  wrap.innerHTML = Array(4).fill('<div class="skeleton" style="aspect-ratio:3/4;border-radius:16px"></div>').join('');
+  try {
+    nouvState.items = await api('/events/new?days=60');
+    nouvState.shown = 8;
+    renderNouveautes();
+  } catch {
+    wrap.innerHTML = '<p class="empty-state">Impossible de charger.</p>';
+  }
+}
+function renderNouveautes() {
+  const items = nouvState.sort === 'date'
+    ? [...nouvState.items].sort((a, b) => new Date(a.date) - new Date(b.date))
+    : nouvState.items;
+  const shown = items.slice(0, nouvState.shown);
+  document.getElementById('nouv-cards').innerHTML = shown.map(buildCardA).join('');
+  document.getElementById('nouv-meta').textContent =
+    `${items.length} nouveauté${items.length !== 1 ? 's' : ''}`;
+  document.getElementById('btn-more-nouv').classList.toggle('hidden', nouvState.shown >= items.length);
+}
+document.getElementById('nouv-sort-added').addEventListener('click', function() {
+  nouvState.sort = 'added';
+  this.classList.add('active');
+  document.getElementById('nouv-sort-date').classList.remove('active');
+  renderNouveautes();
+});
+document.getElementById('nouv-sort-date').addEventListener('click', function() {
+  nouvState.sort = 'date';
+  this.classList.add('active');
+  document.getElementById('nouv-sort-added').classList.remove('active');
+  renderNouveautes();
+});
+document.getElementById('btn-more-nouv').addEventListener('click', () => {
+  nouvState.shown += 8;
+  renderNouveautes();
+});
 
 // ── RADAR page ─────────────────────────────────────────────────
 async function loadRadar() {
@@ -694,7 +805,7 @@ async function loadAllPage() {
     const items = data.items ?? [];
     const total = data.total ?? items.length;
     meta.textContent = `${total} événement${total !== 1 ? 's' : ''}`;
-    wrap.innerHTML = items.length ? items.map(buildRow).join('') : '';
+    wrap.innerHTML = items.length ? items.map(buildCardB).join('') : '';
     empty.classList.toggle('hidden', items.length > 0);
     const btn = document.getElementById('btn-more-all');
     btn.classList.toggle('hidden', (data.pages ?? 1) <= 1);
@@ -774,7 +885,7 @@ document.getElementById('btn-more-all').addEventListener('click', async function
   state.allPage++;
   const data = await api('/events?' + buildAllParams());
   document.getElementById('all-rows')
-    .insertAdjacentHTML('beforeend', (data.items ?? []).map(buildRow).join(''));
+    .insertAdjacentHTML('beforeend', (data.items ?? []).map(buildCardB).join(''));
   if (state.allPage >= (data.pages ?? 1)) this.classList.add('hidden');
 });
 
@@ -811,48 +922,76 @@ function generateIcs(ev) {
 async function loadEvent(id) {
   const wrap = document.getElementById('event-detail');
   wrap.innerHTML = `
-    <div class="detail-card skeleton-detail">
-      <div class="skeleton detail-img-skel"></div>
-      <div class="detail-body">
-        <div class="skeleton" style="width:80px;height:22px;border-radius:99px;margin-bottom:14px"></div>
-        <div class="skeleton" style="width:70%;height:32px;margin-bottom:10px"></div>
-        <div class="skeleton" style="width:50%;height:18px;margin-bottom:8px"></div>
-        <div class="skeleton" style="width:40%;height:18px;margin-bottom:24px"></div>
-        <div class="skeleton" style="width:100%;height:80px;margin-bottom:8px"></div>
-        <div class="skeleton" style="width:100%;height:60px;margin-bottom:24px"></div>
-        <div class="skeleton" style="width:160px;height:44px;border-radius:11px"></div>
+    <div class="detail-layout">
+      <div><div class="skeleton" style="aspect-ratio:3/4;border-radius:14px;width:100%"></div></div>
+      <div style="display:flex;flex-direction:column;gap:14px;padding-top:8px">
+        <div class="skeleton" style="width:90px;height:24px;border-radius:99px"></div>
+        <div class="skeleton" style="width:75%;height:40px"></div>
+        <div class="skeleton" style="width:55%;height:20px"></div>
+        <div class="skeleton" style="width:100%;height:110px;border-radius:12px"></div>
+        <div class="skeleton" style="width:100%;height:80px"></div>
+        <div class="skeleton" style="width:160px;height:46px;border-radius:11px"></div>
       </div>
     </div>`;
   try {
-    const ev = await api(`/events/${id}`);
-    const color = catColor(ev.category);
-    const price = fmtPrice(ev.price);
+    const ev       = await api(`/events/${id}`);
+    const color    = catColor(ev.category);
+    const price    = fmtPrice(ev.price);
+    const { name, subtitle } = splitTitle(ev);
+    const dateOnly = fmtDateOnly(ev.date);
+    const timeStr  = fmtTimeIfKnown(ev.date);
+    const provider = bookingProvider(ev.booking_url);
+    const provStr  = provider ? ` · billetterie ${provider}` : '';
+
+    const posterHtml = ev.image_url
+      ? `<img src="${ev.image_url}" alt="${name}" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block">`
+      : `<div class="detail-poster-fallback" style="background:linear-gradient(160deg,${color}55 0%,${color}18 100%)">
+           <span class="detail-poster-initial">${name.charAt(0).toUpperCase()}</span>
+         </div>`;
+
+    const infoCells = [
+      { label: 'DATE',      value: dateOnly },
+      ...(timeStr             ? [{ label: 'HEURE',     value: timeStr }] : []),
+      ...(ev.duration        ? [{ label: 'DURÉE',      value: ev.duration }] : []),
+      { label: 'LIEU',      value: ev.venue },
+      ...(price              ? [{ label: 'PRIX',       value: `<span class="${price === 'Gratuit' ? 'is-free' : ''}">${price}</span>` }] : []),
+      ...(ev.placement       ? [{ label: 'PLACEMENT',  value: ev.placement }] : []),
+    ];
+    const infoGridHtml = infoCells.map(c =>
+      `<div class="info-cell"><span class="info-label">${c.label}</span><span class="info-value">${c.value}</span></div>`
+    ).join('');
+
+    const practicalHtml = [
+      ev.address    ? `<div class="detail-practical"><span class="detail-practical-label">Adresse</span><span>${ev.address}</span></div>` : '',
+      ev.doors_open ? `<div class="detail-practical"><span class="detail-practical-label">Ouverture</span><span>${ev.doors_open}</span></div>` : '',
+      ev.access_info? `<div class="detail-practical"><span class="detail-practical-label">Accès</span><span>${ev.access_info}</span></div>` : '',
+    ].filter(Boolean).join('');
+
     wrap.innerHTML = `
-    <div class="detail-card">
-      ${ev.image_url
-        ? `<img class="detail-img" src="${ev.image_url}" alt="${ev.title}" loading="lazy">`
-        : `<div class="detail-img-fallback" style="background:linear-gradient(135deg,${color}55 0%,${color}18 100%)"><span class="detail-img-cat">${ev.category || ''}</span></div>`}
-      <div class="detail-body">
+    <div class="detail-layout">
+      <div class="detail-col-left">
+        <div class="detail-poster">${posterHtml}</div>
+        ${ev.booking_url
+          ? `<a class="btn-cta detail-action-btn" href="${ev.booking_url}" target="_blank" rel="noopener">Réserver des billets ${ICO_ARR}</a>`
+          : ''}
+        <button class="btn-cta btn-cta-secondary detail-action-btn" id="btn-ics">
+          ${ICO_CAL} Ajouter à mon agenda
+        </button>
+        <div class="detail-source">
+          Source : <strong>${ev.venue}</strong>${provStr}
+          <span class="detail-added">${fmtRelative(ev.first_seen)}</span>
+        </div>
+      </div>
+      <div class="detail-col-right">
         <div class="detail-badges">
           ${ev.category ? badgeCat(ev.category) : ''}
           ${ev.is_new ? '<span class="badge-new">NOUVEAU</span>' : ''}
         </div>
-        <h1 class="detail-title">${ev.title}</h1>
-        <div class="detail-metas">
-          <div class="detail-meta">${ICO_CAL} <strong>${fmtDateTime(ev.date)}</strong></div>
-          <div class="detail-meta">${ICO_PIN} ${ev.venue}</div>
-          ${price ? `<div class="detail-meta"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v12M9 9h4.5a2.5 2.5 0 0 1 0 5H9"/></svg> <strong class="${price === 'Gratuit' ? 'is-free' : ''}">${price}</strong></div>` : ''}
-        </div>
-        ${ev.description ? `<p class="detail-desc">${ev.description}</p>` : ''}
-        <div class="detail-actions">
-          ${ev.booking_url
-            ? `<a class="btn-cta" href="${ev.booking_url}" target="_blank" rel="noopener">Réserver des billets ${ICO_ARR}</a>`
-            : ''}
-          <button class="btn-cta btn-cta-secondary" id="btn-ics" data-id="${ev.id}">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-            Ajouter à mon agenda
-          </button>
-        </div>
+        <h1 class="detail-name">${name}</h1>
+        ${subtitle ? `<p class="detail-subtitle-text">${subtitle}</p>` : ''}
+        <div class="detail-info-grid">${infoGridHtml}</div>
+        ${ev.description ? `<div class="detail-section"><h3>À propos</h3><p>${ev.description}</p></div>` : ''}
+        ${practicalHtml ? `<div class="detail-section"><h3>Infos pratiques</h3>${practicalHtml}</div>` : ''}
       </div>
     </div>`;
     document.getElementById('btn-ics').addEventListener('click', () => generateIcs(ev));
@@ -890,7 +1029,7 @@ mobileNav.addEventListener('click', e => {
 });
 
 // ── Router ─────────────────────────────────────────────────────
-const PAGES = ['radar','calendrier','sorties','event'];
+const PAGES = ['radar','nouveautes','calendrier','sorties','event'];
 let  prevPage = null;
 
 function getRoute() {
@@ -924,6 +1063,10 @@ async function route() {
   } else if (page === 'calendrier') {
     document.getElementById('page-calendrier').classList.remove('hidden');
     if (prevPage !== 'calendrier') initCalendar();
+
+  } else if (page === 'nouveautes') {
+    document.getElementById('page-nouveautes').classList.remove('hidden');
+    if (prevPage !== 'nouveautes') await loadNouveautes();
 
   } else if (page === 'sorties') {
     document.getElementById('page-sorties').classList.remove('hidden');

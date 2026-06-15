@@ -899,3 +899,209 @@ a:focus:not(:focus-visible) { outline: none; }
   .category-pills::-webkit-scrollbar { display: none; }
   .pill { flex-shrink: 0; }
 }
+
+/* ── Card A (portrait 3:4 — grille radar / nouveautés) ── */
+.card-a {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  transition: transform .15s, box-shadow .15s, border-color .15s;
+}
+.card-a:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 36px color-mix(in srgb, var(--bg) 30%, rgba(0,0,0,.25));
+  border-color: var(--accent)66;
+}
+.card-a-poster {
+  aspect-ratio: 3/4;
+  position: relative;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+.card-a-poster img {
+  width: 100%; height: 100%;
+  object-fit: cover; display: block;
+  transition: transform .3s;
+}
+.card-a:hover .card-a-poster img { transform: scale(1.04); }
+.card-a-fallback {
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+}
+.card-a-initial {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: clamp(60px, 10vw, 100px);
+  font-weight: 800; line-height: 1; user-select: none;
+}
+.card-a-badges {
+  position: absolute; top: 10px; left: 10px; right: 10px;
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 6px;
+}
+.card-a-body { padding: 14px 16px 8px; flex: 1; }
+.card-a-name {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 1.05rem; font-weight: 800; line-height: 1.2;
+}
+.card-a-subtitle {
+  font-size: .8rem; color: var(--text-muted); margin-top: 3px;
+  overflow: hidden; display: -webkit-box;
+  -webkit-line-clamp: 1; -webkit-box-orient: vertical;
+}
+.card-a-meta {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 12px; color: var(--text-muted); margin-top: 7px;
+}
+.card-a-footer {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 16px 14px;
+  border-top: 1px solid var(--border);
+  margin-top: 8px;
+}
+.card-a-price { font-weight: 700; font-size: 13.5px; }
+
+/* ── Card B (liste thumbnail — page sorties) ── */
+.cards-grid-b {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 10px;
+}
+.card-b {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  cursor: pointer;
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  transition: border-color .15s, background .15s;
+  min-height: 134px;
+}
+.card-b:hover { background: var(--surface-2); border-color: var(--accent)44; }
+.card-b-poster {
+  position: relative; overflow: hidden;
+  background: var(--surface-2);
+}
+.card-b-poster img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.card-b-fallback {
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+}
+.card-b-initial {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 40px; font-weight: 800; user-select: none;
+}
+.card-b-badge-new {
+  position: absolute; top: 8px; left: 6px; font-size: 9px !important;
+}
+.card-b-body {
+  padding: 12px 14px;
+  display: flex; flex-direction: column; justify-content: space-between;
+  min-width: 0;
+}
+.card-b-eyebrow {
+  font-size: .65rem; font-weight: 700;
+  letter-spacing: .08em; text-transform: uppercase; margin-bottom: 3px;
+}
+.card-b-name {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: .95rem; font-weight: 800; line-height: 1.2;
+}
+.card-b-subtitle {
+  font-size: .78rem; color: var(--text-muted); margin-top: 2px;
+  overflow: hidden; display: -webkit-box;
+  -webkit-line-clamp: 1; -webkit-box-orient: vertical;
+}
+.card-b-meta {
+  display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
+  font-size: .73rem; color: var(--text-muted); margin-top: 7px;
+}
+.card-b-footer {
+  display: flex; justify-content: space-between; align-items: center; margin-top: 7px;
+}
+.card-b-price { font-weight: 700; font-size: 13px; }
+.card-b-book {
+  font-size: 11.5px; font-weight: 600; color: var(--accent);
+  display: flex; align-items: center; gap: 3px;
+}
+
+/* ── Detail page 2-column layout ── */
+.detail-layout {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 40px;
+  max-width: 900px;
+  align-items: start;
+}
+.detail-col-left { position: sticky; top: calc(var(--navbar-h) + 24px); }
+.detail-poster {
+  aspect-ratio: 3/4;
+  border-radius: 14px; overflow: hidden;
+  margin-bottom: 14px; background: var(--surface-2);
+}
+.detail-poster img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.detail-poster-fallback {
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+}
+.detail-poster-initial {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: clamp(60px, 8vw, 96px); font-weight: 800;
+  color: rgba(255,255,255,.13); user-select: none; line-height: 1;
+}
+.detail-action-btn {
+  width: 100%; justify-content: center;
+  display: flex; margin-bottom: 10px;
+}
+.detail-source {
+  margin-top: 14px; padding: 12px 14px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; font-size: 12px; color: var(--text-muted); line-height: 1.7;
+}
+.detail-source strong { color: var(--text); }
+.detail-added { display: block; }
+.detail-col-right .detail-badges { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+.detail-name {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: clamp(1.5rem, 3vw, 2.2rem); font-weight: 800; line-height: 1.1; margin-bottom: 8px;
+}
+.detail-subtitle-text {
+  font-size: .95rem; color: var(--text-muted); margin-bottom: 4px; font-style: italic;
+}
+.detail-info-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 1px; background: var(--border);
+  border-radius: 12px; overflow: hidden; margin: 20px 0;
+}
+.info-cell { background: var(--surface); padding: 12px 14px; }
+.info-label {
+  display: block; font-size: .6rem; font-weight: 700;
+  letter-spacing: .1em; text-transform: uppercase;
+  color: var(--text-muted); margin-bottom: 4px;
+}
+.info-value { font-size: .88rem; font-weight: 600; }
+.detail-section { margin-top: 24px; }
+.detail-section h3 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 1rem; font-weight: 700; margin-bottom: 10px;
+}
+.detail-section p { font-size: .88rem; color: var(--text-muted); line-height: 1.7; }
+.detail-practical {
+  display: grid; grid-template-columns: 100px 1fr;
+  font-size: .85rem; padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+}
+.detail-practical:last-child { border-bottom: none; }
+.detail-practical-label { color: var(--text-muted); font-weight: 600; }
+
+/* ── Responsive additions ── */
+@media (max-width: 768px) {
+  .detail-layout { grid-template-columns: 1fr; }
+  .detail-col-left { position: static; }
+  .detail-poster { max-width: 220px; margin-inline: auto; }
+  .cards-grid-b { grid-template-columns: 1fr; }
+  .detail-info-grid { grid-template-columns: repeat(2, 1fr); }
+}

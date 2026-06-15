@@ -67,7 +67,12 @@ class EventOut(BaseModel):
     booking_url: Optional[str] = None
     event_url: Optional[str] = None
     price: Optional[str] = None
-    category: Optional[str] = None
+    category:     Optional[str] = None
+    duration:     Optional[str] = None
+    placement:    Optional[str] = None
+    doors_open:   Optional[str] = None
+    access_info:  Optional[str] = None
+    address:      Optional[str] = None
     is_new: bool
     first_seen: datetime
     last_updated: Optional[datetime] = None

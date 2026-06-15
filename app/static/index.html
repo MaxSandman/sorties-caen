@@ -25,9 +25,10 @@
           Sorties Caen
         </a>
         <nav class="navbar-nav">
-          <a href="#/radar"      class="nav-link" data-route="radar">Radar</a>
-          <a href="#/calendrier" class="nav-link" data-route="calendrier">Calendrier</a>
-          <a href="#/sorties"    class="nav-link" data-route="sorties">Toutes les sorties</a>
+          <a href="#/radar"       class="nav-link" data-route="radar">Radar</a>
+          <a href="#/nouveautes"  class="nav-link" data-route="nouveautes">Nouveautés</a>
+          <a href="#/calendrier"  class="nav-link" data-route="calendrier">Calendrier</a>
+          <a href="#/sorties"     class="nav-link" data-route="sorties">Toutes les sorties</a>
         </nav>
       </div>
       <div class="navbar-right">
@@ -75,9 +76,10 @@
   <!-- ── MOBILE NAV ───────────────────────────────────── -->
   <div class="mobile-nav-overlay hidden" id="mobile-nav-overlay" aria-hidden="true">
     <nav class="mobile-nav" role="navigation" aria-label="Navigation principale">
-      <a href="#/radar"      class="mobile-nav-link" data-route="radar">Radar</a>
-      <a href="#/calendrier" class="mobile-nav-link" data-route="calendrier">Calendrier</a>
-      <a href="#/sorties"    class="mobile-nav-link" data-route="sorties">Toutes les sorties</a>
+      <a href="#/radar"       class="mobile-nav-link" data-route="radar">Radar</a>
+      <a href="#/nouveautes"  class="mobile-nav-link" data-route="nouveautes">Nouveautés</a>
+      <a href="#/calendrier"  class="mobile-nav-link" data-route="calendrier">Calendrier</a>
+      <a href="#/sorties"     class="mobile-nav-link" data-route="sorties">Toutes les sorties</a>
     </nav>
   </div>
 
@@ -93,7 +95,7 @@
           <strong id="new-banner-title">nouveaux événements depuis ta dernière visite</strong>
           <span id="new-banner-sub"></span>
         </div>
-        <a href="#/radar" class="btn btn-accent" id="new-banner-cta">Voir les nouveautés →</a>
+        <a href="#/nouveautes" class="btn btn-accent" id="new-banner-cta">Voir les nouveautés →</a>
       </div>
 
       <div class="search-bar">
@@ -163,6 +165,23 @@
       </section>
 
     </div><!-- /page-radar -->
+
+    <!-- PAGE NOUVEAUTÉS -->
+    <div id="page-nouveautes" class="page hidden">
+      <div class="section-head">
+        <div class="section-title-row">
+          <h2 class="section-title">Nouveautés</h2>
+          <span class="section-meta" id="nouv-meta"></span>
+        </div>
+        <div class="sort-toggle">
+          <span class="sort-label">Trier par</span>
+          <button class="sort-btn active" id="nouv-sort-added">Date d'ajout</button>
+          <button class="sort-btn" id="nouv-sort-date">Date de l'événement</button>
+        </div>
+      </div>
+      <div class="cards-grid" id="nouv-cards"></div>
+      <button class="btn-more hidden" id="btn-more-nouv">Afficher plus ∨</button>
+    </div>
 
     <!-- PAGE CALENDRIER -->
     <div id="page-calendrier" class="page hidden">
@@ -262,7 +281,7 @@
         </div>
       </div>
 
-      <div class="list-rows" id="all-rows"></div>
+      <div class="cards-grid-b" id="all-rows"></div>
       <p class="empty-state hidden" id="all-empty">Aucun événement pour ces critères.</p>
       <button class="btn-more hidden" id="btn-more-all">Charger plus ∨</button>
     </div>

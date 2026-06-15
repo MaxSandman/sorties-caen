@@ -28,6 +28,11 @@ class RawEvent:
     price: Optional[str] = None
     category: Optional[str] = None
     external_id: Optional[str] = None
+    duration:    Optional[str] = None
+    placement:   Optional[str] = None
+    doors_open:  Optional[str] = None
+    access_info: Optional[str] = None
+    address:     Optional[str] = None
 
     def dedup_key(self) -> str:
         """Stable key for deduplication: external_id when available, else hash of core fields."""
