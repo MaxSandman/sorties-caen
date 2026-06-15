@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 _AREA_ID  = "5e4e0cb9-ac24-40a9-8a79-216ec1b0b3f4"
 _API_BASE = f"https://api.theatrealouest.com/shows/areas/{_AREA_ID}"
-_SHOW_BASE = "https://theatrealouest.com/caen/spectacle"
+_SHOW_BASE = "https://theatrealouest.com/caen/spectacle/reserver-places"
 
 _CAT_MAP = {
     "stand up": "humour", "humour": "humour", "comédie": "humour",
