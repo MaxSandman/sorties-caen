@@ -1,118 +1,114 @@
 """
-Scraper for Le BBC (Big Band Café) — https://bigbandcafe.com/concerts/
+Scraper for Le BBC (Big Band Café) — https://bigbandcafe.com
 
-Le BBC is a jazz/blues venue. The site is likely WordPress with an events plugin.
-Selector notes:
-  - Event cards:   .event, .tribe-event, article  or  .concert-item
-  - Title:         h2, h3, .tribe-event-title  or  .entry-title
-  - Date:          time[datetime]  or  .tribe-event-schedule-details  or  .event-date
-  - Booking:       a[href*='reservation']  or  a.tribe-event-url
+HTML structure (observed):
+  div.col-md-3.col-12 > div.post-item > div.post-item-wrap > div.row
+    div.post-image > a[href]  — event URL + img
+    div.post-item-description
+      h2.MB0 > a[href]        — title
+      span.span-caousel-home  — date text "jeu. 18 juin 2026 - 20:00"
 """
+from __future__ import annotations
 
 import re
+import logging
+from datetime import datetime
 from bs4 import BeautifulSoup
+
 from .base import BaseScraper, RawEvent
-from .theatre_ouest import _parse_french_date
+
+logger = logging.getLogger(__name__)
+
+MONTHS_FR = {
+    "janvier": 1, "février": 2, "fevrier": 2, "mars": 3, "avril": 4,
+    "mai": 5, "juin": 6, "juillet": 7, "août": 8, "aout": 8,
+    "septembre": 9, "octobre": 10, "novembre": 11, "décembre": 12, "decembre": 12,
+}
+
+
+def _parse_bbc_date(text: str) -> tuple[datetime | None, str | None]:
+    """Parse 'jeu. 18 juin 2026 - 20:00' → (datetime, '20:00')."""
+    text = text.strip()
+    m = re.search(
+        r"(\d{1,2})\s+(\w+)\s+(\d{4})(?:\s*[-–]\s*(\d{1,2})[h:](\d{2}))?",
+        text, re.IGNORECASE
+    )
+    if not m:
+        return None, None
+    day = int(m.group(1))
+    month_str = m.group(2).lower()
+    year = int(m.group(3))
+    hour = int(m.group(4)) if m.group(4) else 20
+    minute = int(m.group(5)) if m.group(5) else 0
+    month = MONTHS_FR.get(month_str)
+    if not month:
+        return None, None
+    dt = datetime(year, month, day, hour, minute)
+    time_str = f"{hour:02d}:{minute:02d}" if m.group(4) else None
+    return dt, time_str
 
 
 class BBCScraper(BaseScraper):
-    venue_name = "Le BBC (Big Band Café)"
-    venue_key = "bbc"
-    base_url = "https://bigbandcafe.com"
-    list_url = "https://bigbandcafe.com/concerts/"
+    venue_name     = "Le BBC (Big Band Café)"
+    venue_key      = "bbc"
+    base_url       = "https://bigbandcafe.com"
+    list_url       = "https://bigbandcafe.com/programmation/"
+    use_playwright = False
 
     async def _scrape(self) -> list[RawEvent]:
-        html = await self._get_page(self.list_url, wait_for=".event, article, .tribe-events-loop")
+        html = self._get_page_requests(self.list_url)
         soup = BeautifulSoup(html, "html.parser")
-        events = []
+        events: list[RawEvent] = []
 
-        # The Events Calendar (WordPress plugin) uses .tribe-* classes
-        cards = (
-            soup.select(".tribe-events-loop .tribe-event")
-            or soup.select(".tribe-events-loop article")
-            or soup.select("article.type-tribe_events")
-            or soup.select(".event-item")
-            or soup.select(".concert-item")
-            or soup.select("article")
-        )
-
-        for card in cards:
+        for card in soup.select("div.post-item"):
             try:
-                title_el = (
-                    card.select_one(".tribe-event-title")
-                    or card.select_one(".entry-title")
-                    or card.select_one("h2")
-                    or card.select_one("h3")
-                    or card.select_one(".event-title")
-                )
+                # Title
+                title_el = card.select_one(".post-item-description h2 a")
+                if not title_el:
+                    title_el = card.select_one(".post-item-description h2")
                 if not title_el:
                     continue
                 title = title_el.get_text(strip=True)
-                if len(title) < 2:
+                if not title:
                     continue
 
-                date = None
-                time_el = card.select_one("time[datetime]")
-                if time_el:
-                    date = _parse_french_date(time_el.get("datetime", ""))
-                if not date:
-                    date_el = card.select_one(
-                        ".tribe-event-schedule-details, .event-date, "
-                        ".date, abbr[title]"
-                    )
-                    if date_el:
-                        raw = date_el.get("title") or date_el.get_text()
-                        date = _parse_french_date(raw)
-                if not date:
+                # Date
+                date_el = card.select_one(".span-caousel-home")
+                if not date_el:
+                    continue
+                dt, time_str = _parse_bbc_date(date_el.get_text())
+                if not dt:
                     continue
 
-                time_str = None
-                if time_el:
-                    t = time_el.get_text(strip=True)
-                    m = re.search(r"\d{1,2}[h:]\d{0,2}", t)
-                    if m:
-                        time_str = m.group(0)
-
-                link_el = (
-                    card.select_one("a.tribe-event-url")
-                    or card.select_one(".tribe-event-title a")
-                    or card.select_one("a[href]")
-                )
+                # Event URL
+                link_el = card.select_one(".post-image a[href]") or card.select_one(".post-item-description h2 a[href]")
                 event_url = None
                 if link_el:
                     href = link_el["href"]
                     event_url = href if href.startswith("http") else self.base_url + href
 
-                booking_el = card.select_one(
-                    "a[href*='reservation'], a[href*='billet'], "
-                    "a[href*='weezevent'], a[href*='helloasso']"
-                )
-                booking_url = None
-                if booking_el:
-                    booking_url = booking_el["href"]
-                elif event_url:
-                    booking_url = event_url
-
-                img_el = card.select_one("img")
+                # Image
+                img_el = card.select_one(".post-image img")
                 image_url = None
                 if img_el:
-                    src = img_el.get("src") or img_el.get("data-src", "")
-                    if src and not src.endswith(".svg"):
+                    src = img_el.get("src") or img_el.get("data-src") or img_el.get("data-lazy-src", "")
+                    if src:
                         image_url = src if src.startswith("http") else self.base_url + src
 
                 events.append(RawEvent(
                     title=title,
                     venue=self.venue_name,
                     venue_key=self.venue_key,
-                    date=date,
+                    date=dt,
                     time=time_str,
                     event_url=event_url,
-                    booking_url=booking_url,
+                    booking_url=event_url,
                     image_url=image_url,
-                    category="Jazz / Blues",
-                    external_id=self._make_external_id(title, date.date()),
+                    category="Musique",
+                    external_id=self._make_external_id(title, dt.date()),
                 ))
-            except Exception:
+            except Exception as exc:
+                logger.debug(f"[bbc] skip item: {exc}")
                 continue
 
         return events
