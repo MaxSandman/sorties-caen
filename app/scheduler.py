@@ -144,14 +144,7 @@ def run_all_scrapers(venue_key: Optional[str] = None):
         loop.close()
 
 
-_SCRAPERS_ENABLED = os.getenv("SCRAPERS_ENABLED", "1").strip().lower() not in ("0", "false", "no")
-
-
 def start_scheduler():
-    if not _SCRAPERS_ENABLED:
-        logger.info("Scheduler disabled (SCRAPERS_ENABLED=0) — skipping scrape jobs")
-        return
-
     _scheduler.add_job(
         run_all_scrapers,
         trigger=CronTrigger(hour="7,19", minute=0),
