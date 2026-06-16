@@ -33,10 +33,10 @@ class CargoScraper(BaseScraper):
     venue_key      = "cargo"
     base_url       = "https://lecargo.fr"
     list_url       = "https://lecargo.fr/programmation/"
-    use_playwright = False
+    use_playwright = True
 
     async def _scrape(self) -> list[RawEvent]:
-        html = self._get_page_requests(self.list_url)
+        html = await self._get_page(self.list_url, wait_for="ul.agenda, li.agenda__list")
         soup = BeautifulSoup(html, "html.parser")
         events: list[RawEvent] = []
 

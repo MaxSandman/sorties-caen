@@ -30,10 +30,10 @@ class CaenEvenementsScraper(BaseScraper):
     venue_key      = "caen_evenements"
     base_url       = "https://www.caen-evenements.com"
     list_url       = "https://www.caen-evenements.com/evenements/"
-    use_playwright = False
+    use_playwright = True
 
     async def _scrape(self) -> list[RawEvent]:
-        html = self._get_page_requests(self.list_url)
+        html = await self._get_page(self.list_url, wait_for="div[itemscope]")
         soup = BeautifulSoup(html, "html.parser")
         events: list[RawEvent] = []
 

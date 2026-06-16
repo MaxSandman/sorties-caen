@@ -69,10 +69,10 @@ class ZenithScraper(BaseScraper):
     venue_key      = "zenith"
     base_url       = "https://zenith-caen.fr"
     list_url       = "https://zenith-caen.fr"
-    use_playwright = False
+    use_playwright = True
 
     async def _scrape(self) -> list[RawEvent]:
-        html = self._get_page_requests(self.list_url)
+        html = await self._get_page(self.list_url, wait_for="li.spectacle-item-wrapper")
         soup = BeautifulSoup(html, "html.parser")
         events: list[RawEvent] = []
 
