@@ -184,8 +184,11 @@ async def _run_scraper(scraper_class, venue_key: Optional[str] = None):
 def run_all_scrapers(venue_key: Optional[str] = None):
     """Entry point called by scheduler (sync) or CLI."""
     async def _run_all():
-        tasks = [_run_scraper(cls, venue_key) for cls in ALL_SCRAPERS]
-        await asyncio.gather(*tasks)
+        # Run sequentially: each Playwright scraper launches its own Chromium,
+        # and several concurrent browsers starve each other of CPU/shared memory
+        # in the container, so JS-rendered pages don't finish rendering in time.
+        for cls in ALL_SCRAPERS:
+            await _run_scraper(cls, venue_key)
 
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
