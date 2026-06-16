@@ -44,15 +44,24 @@ function fmtDateTime(iso) {
   const h = d.getHours(), m = d.getMinutes();
   return `${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]} · ${h}h${String(m).padStart(2,'0')}`;
 }
+// System timestamps (scraped_at, first_seen) come from the backend as naive
+// UTC strings without a timezone suffix. new Date() would read them as LOCAL
+// time, adding a ~2h offset in Paris summer time. Append 'Z' so they parse as UTC.
+function parseUTC(iso) {
+  if (typeof iso === 'string' && !/[zZ]|[+-]\d{2}:?\d{2}$/.test(iso)) {
+    iso += 'Z';
+  }
+  return new Date(iso);
+}
 function fmtRelative(iso) {
-  const s = (Date.now() - new Date(iso)) / 1000;
-  if (s < 3600)   return `Ajouté il y a ${Math.round(s/60)} min`;
+  const s = (Date.now() - parseUTC(iso)) / 1000;
+  if (s < 3600)   return `Ajouté il y a ${Math.max(1, Math.round(s/60))} min`;
   if (s < 86400)  return `Ajouté il y a ${Math.round(s/3600)} h`;
   if (s < 172800) return 'Ajouté hier';
   return `Ajouté il y a ${Math.round(s/86400)} j`;
 }
 function fmtScrapeAge(iso) {
-  const s = (Date.now() - new Date(iso)) / 1000;
+  const s = (Date.now() - parseUTC(iso)) / 1000;
   if (s < 60)    return "Mis à jour à l'instant";
   if (s < 3600)  return `Mis à jour il y a ${Math.round(s/60)} min`;
   if (s < 86400) return `Mis à jour il y a ${Math.round(s/3600)} h`;
@@ -263,7 +272,7 @@ async function loadBellDropdown() {
     }
     const lastSeen = localStorage.getItem('bellLastSeen');
     list.innerHTML = items.map(ev => {
-      const isUnseen = !lastSeen || new Date(ev.first_seen) > new Date(lastSeen);
+      const isUnseen = !lastSeen || parseUTC(ev.first_seen) > new Date(lastSeen);
       const color    = catColor(ev.category);
       const price    = fmtPrice(ev.price);
       return `<div class="bell-item${isUnseen ? ' bell-item-new' : ''}" data-id="${ev.id}">
@@ -325,16 +334,43 @@ document.addEventListener('click', e => {
 });
 
 // ── Refresh button ─────────────────────────────────────────────
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
 document.getElementById('btn-refresh').addEventListener('click', async function() {
+  const label = document.getElementById('last-update');
   this.classList.add('spinning');
   this.disabled = true;
+
+  // Baseline: the scrape runs in the background and takes 1-2 min, so we poll
+  // /stats until last_scrape_at advances rather than reading it immediately.
+  let baseline = null;
+  try { baseline = (await api('/stats')).last_scrape_at; } catch {}
+
+  let triggered = false;
   try {
-    await fetch('/api/scrape/run', { method: 'POST' });
-  } catch {}
-  await refreshNavbar();
-  const { page } = getRoute();
-  if (page === 'radar') await loadRadar();
-  else if (page === 'sorties') await loadAllPage();
+    const res = await fetch('/api/scrape/run', { method: 'POST' });
+    triggered = res.ok;
+    if (!res.ok && label) label.textContent = 'Mise à jour indisponible';
+  } catch {
+    if (label) label.textContent = 'Mise à jour indisponible';
+  }
+
+  if (triggered) {
+    if (label) label.textContent = 'Mise à jour en cours…';
+    // Poll for up to ~3 min (40 × 5s) until the scrape timestamp changes.
+    for (let i = 0; i < 40; i++) {
+      await sleep(5000);
+      try {
+        const s = await api('/stats');
+        if (s.last_scrape_at && s.last_scrape_at !== baseline) break;
+      } catch {}
+    }
+    await refreshNavbar();
+    const { page } = getRoute();
+    if (page === 'radar') await loadRadar();
+    else if (page === 'sorties') await loadAllPage();
+  }
+
   this.classList.remove('spinning');
   this.disabled = false;
 });

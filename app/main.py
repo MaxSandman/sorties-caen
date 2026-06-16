@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ipaddress
 import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, date, timedelta
@@ -18,6 +19,17 @@ from .scheduler import start_scheduler, stop_scheduler, run_all_scrapers
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+def _is_local_or_private(host: str) -> bool:
+    """True for loopback or private LAN addresses (incl. Docker bridge gateway)."""
+    if host in ("localhost", ""):
+        return True
+    try:
+        ip = ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    return ip.is_loopback or ip.is_private
 
 
 @asynccontextmanager
@@ -370,7 +382,7 @@ async def trigger_scrape(
     background_tasks: BackgroundTasks = None,
 ):
     client_host = request.client.host if request.client else ""
-    if client_host not in ("127.0.0.1", "::1", "localhost"):
+    if not _is_local_or_private(client_host):
         raise HTTPException(status_code=403, detail="Scrape manuel réservé au réseau local")
     background_tasks.add_task(run_all_scrapers, venue_key=venue_key)
     return ScrapeRunOut(status="started", venue_key=venue_key or "all")
