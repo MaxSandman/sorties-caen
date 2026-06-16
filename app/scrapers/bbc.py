@@ -2,11 +2,12 @@
 Scraper for Le BBC (Big Band Café) — https://bigbandcafe.com
 
 HTML structure (observed):
-  div.col-md-3.col-12 > div.post-item > div.post-item-wrap > div.row
+  div.post-item-wrap > div.row
     div.post-image > a[href]  — event URL + img
+      span.post-meta-category — status ("COMPLET • ...")
     div.post-item-description
       h2.MB0 > a[href]        — title
-      span.span-caousel-home  — date text "jeu. 18 juin 2026 - 20:00"
+      span.span-caousel-home  — date text "ven. 9 octobre 2026 - 20:00"
 """
 from __future__ import annotations
 
@@ -52,15 +53,15 @@ class BBCScraper(BaseScraper):
     venue_name     = "Le BBC (Big Band Café)"
     venue_key      = "bbc"
     base_url       = "https://bigbandcafe.com"
-    list_url       = "https://bigbandcafe.com/programmation/"
+    list_url       = "https://bigbandcafe.com/concerts/"
     use_playwright = True
 
     async def _scrape(self) -> list[RawEvent]:
-        html = await self._get_page(self.list_url, wait_for="div.post-item")
+        html = await self._get_page(self.list_url, wait_for="div.post-item-wrap")
         soup = BeautifulSoup(html, "html.parser")
         events: list[RawEvent] = []
 
-        for card in soup.select("div.post-item"):
+        for card in soup.select("div.post-item-wrap"):
             try:
                 # Title
                 title_el = card.select_one(".post-item-description h2 a")
