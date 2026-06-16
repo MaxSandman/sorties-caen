@@ -7,6 +7,8 @@ services:
     volumes:
       - ./data:/app/data
     shm_size: '256mb'
+    security_opt:
+      - seccomp:unconfined
     environment:
       - NTFY_TOPIC=${NTFY_TOPIC:-}
       - APP_BASE_URL=${APP_BASE_URL:-http://localhost:8000}

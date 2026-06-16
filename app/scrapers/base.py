@@ -98,8 +98,7 @@ class BaseScraper(ABC):
                     "--disable-setuid-sandbox",
                     "--disable-dev-shm-usage",
                     "--disable-gpu",
-                    "--no-zygote",
-                    "--disable-blink-features=AutomationControlled",
+"--disable-blink-features=AutomationControlled",
                 ],
             )
             context = await browser.new_context(
