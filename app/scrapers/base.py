@@ -100,10 +100,10 @@ class BaseScraper(ABC):
                 )
             )
             page = await context.new_page()
-            await page.goto(url, wait_until="networkidle", timeout=30000)
+            await page.goto(url, wait_until="domcontentloaded", timeout=45000)
             if wait_for:
                 try:
-                    await page.wait_for_selector(wait_for, timeout=10000)
+                    await page.wait_for_selector(wait_for, timeout=20000)
                 except Exception:
                     pass
             content = await page.content()
