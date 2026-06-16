@@ -98,6 +98,7 @@ class BaseScraper(ABC):
                     "--disable-setuid-sandbox",
                     "--disable-dev-shm-usage",
                     "--disable-gpu",
+                    "--no-zygote",
                     "--disable-blink-features=AutomationControlled",
                 ],
             )
