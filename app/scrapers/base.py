@@ -114,10 +114,18 @@ class BaseScraper(ABC):
                 )
             )
             page = await context.new_page()
-            await page.goto(url, wait_until="domcontentloaded", timeout=45000)
+            # "commit" fires as soon as the response headers arrive. These sites
+            # load trackers/scripts that prevent "domcontentloaded" from ever
+            # firing within the timeout, so we commit then wait for real content.
+            await page.goto(url, wait_until="commit", timeout=45000)
             if wait_for:
                 try:
                     await page.wait_for_selector(wait_for, timeout=20000)
+                except Exception:
+                    pass
+            else:
+                try:
+                    await page.wait_for_load_state("domcontentloaded", timeout=15000)
                 except Exception:
                     pass
             content = await page.content()
