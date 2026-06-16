@@ -91,16 +91,21 @@ class BaseScraper(ABC):
         from playwright.async_api import async_playwright
 
         async with async_playwright() as p:
-            browser = await p.chromium.launch(
+            import shutil
+            system_chromium = shutil.which("chromium") or shutil.which("chromium-browser")
+            launch_kwargs: dict = dict(
                 headless=True,
                 args=[
                     "--no-sandbox",
                     "--disable-setuid-sandbox",
                     "--disable-dev-shm-usage",
                     "--disable-gpu",
-"--disable-blink-features=AutomationControlled",
+                    "--disable-blink-features=AutomationControlled",
                 ],
             )
+            if system_chromium:
+                launch_kwargs["executable_path"] = system_chromium
+            browser = await p.chromium.launch(**launch_kwargs)
             context = await browser.new_context(
                 user_agent=(
                     "Mozilla/5.0 (X11; Linux x86_64) "
