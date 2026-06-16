@@ -91,7 +91,16 @@ class BaseScraper(ABC):
         from playwright.async_api import async_playwright
 
         async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
+            browser = await p.chromium.launch(
+                headless=True,
+                args=[
+                    "--no-sandbox",
+                    "--disable-setuid-sandbox",
+                    "--disable-dev-shm-usage",
+                    "--disable-gpu",
+                    "--disable-blink-features=AutomationControlled",
+                ],
+            )
             context = await browser.new_context(
                 user_agent=(
                     "Mozilla/5.0 (X11; Linux x86_64) "
