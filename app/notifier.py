@@ -56,7 +56,7 @@ def send_new_events_notification(events: list["Event"]) -> None:
             "Tags": "ticket",
         }
         if action_url:
-            headers["Actions"] = f"view, Réserver, {action_url}, clear=true"
+            headers["Actions"] = f"view, Reserver, {action_url}, clear=true"
         if ev.image_url:
             headers["Attach"] = ev.image_url
 
