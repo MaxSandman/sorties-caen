@@ -18,28 +18,65 @@ logger = logging.getLogger(__name__)
 _scheduler = BackgroundScheduler(timezone="Europe/Paris")
 
 _NTFY_TOPIC = os.getenv("NTFY_TOPIC", "")
-_APP_BASE_URL = os.getenv("APP_BASE_URL", "http://localhost:8000")
+_NTFY_URL = os.getenv("NTFY_URL", "https://ntfy.sh")
+
+_DAYS_FR = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"]
+_MONTHS_FR = [
+    "janvier", "février", "mars", "avril", "mai", "juin",
+    "juillet", "août", "septembre", "octobre", "novembre", "décembre",
+]
 
 
-def _send_ntfy(event: Event) -> None:
+def _rfc2047(s: str) -> str:
+    import base64
+    return "=?utf-8?b?" + base64.b64encode(s.encode()).decode() + "?="
+
+
+def _fmt_date_fr(ev: "Event") -> str:
+    return f"{_DAYS_FR[ev.date.weekday()]} {ev.date.day} {_MONTHS_FR[ev.date.month - 1]} {ev.date.year}"
+
+
+def _send_ntfy(event: "Event") -> None:
+    """Envoie une notification ntfy pour un nouvel événement.
+
+    Le titre apparaît dans la notif ntfy. Le bouton "Reserver" ouvre
+    directement l'URL de réservation (pas localhost).
+    Sans effet si NTFY_TOPIC n'est pas défini.
+    """
     if not _NTFY_TOPIC:
         return
     try:
         import requests
-        date_str = event.date.strftime("%d/%m/%Y")
-        body = f"{event.venue} — {date_str}"
+        title = f"Nouveau spectacle — {event.venue}"
+
+        parts: list[str] = []
+        if event.artist:
+            parts.append(event.artist)
+        parts.append(_fmt_date_fr(event))
+        if event.time:
+            parts.append(event.time)
+        body = " • ".join(parts) if parts else event.title
+
+        action_url = event.booking_url or event.event_url
+        headers: dict[str, str] = {
+            "Title": _rfc2047(title),
+            "Priority": "default",
+            "Tags": "ticket",
+        }
+        if action_url:
+            headers["Actions"] = f"view, Reserver, {action_url}, clear=true"
+        if event.image_url:
+            headers["Attach"] = event.image_url
+
         requests.post(
-            f"https://ntfy.sh/{_NTFY_TOPIC}",
+            f"{_NTFY_URL.rstrip('/')}/{_NTFY_TOPIC}",
             data=body.encode("utf-8"),
-            headers={
-                "Title": event.title,
-                "Click": f"{_APP_BASE_URL}/#/event/{event.id}",
-                "Tags": "calendar",
-            },
+            headers=headers,
             timeout=10,
         )
-    except Exception as e:
-        logger.warning(f"ntfy notification failed for event {event.id}: {e}")
+        logger.info("ntfy envoyé : %s", event.title)
+    except Exception as exc:
+        logger.warning("ntfy échec pour %s : %s", event.title, exc)
 
 
 _CAT_NORM: dict[str, str] = {
