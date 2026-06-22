@@ -3,10 +3,10 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime
 
-DATABASE_URL = "sqlite:///./sorties_caen.db"
+DATABASE_URL = "sqlite:///./data/sorties_caen.db"
 
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine, expire_on_commit=False)
 Base = declarative_base()
 
 
@@ -28,8 +28,13 @@ class Event(Base):
     category = Column(String, nullable=True)
     external_id = Column(String, nullable=True)  # unique ID from source site
     is_new = Column(Boolean, default=True)        # flagged for "Dernières sorties"
+    seen = Column(Boolean, default=False)         # user has acknowledged this event
     first_seen = Column(DateTime, default=datetime.utcnow)
     last_updated = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    @property
+    def first_seen_at(self) -> datetime:
+        return self.first_seen
 
 
 class ScrapeLog(Base):
@@ -54,3 +59,23 @@ def get_db():
 
 def init_db():
     Base.metadata.create_all(bind=engine)
+    _migrate()
+
+
+def _migrate():
+    """Apply additive SQLite migrations without dropping data."""
+    import sqlalchemy as sa
+    with engine.connect() as conn:
+        existing = {row[1] for row in conn.execute(sa.text("PRAGMA table_info(events)"))}
+        migrations = [
+            ("seen",      "ALTER TABLE events ADD COLUMN seen BOOLEAN NOT NULL DEFAULT 0"),
+            ("artist",    "ALTER TABLE events ADD COLUMN artist VARCHAR"),
+            ("image_url", "ALTER TABLE events ADD COLUMN image_url VARCHAR"),
+        ]
+        changed = False
+        for col, ddl in migrations:
+            if col not in existing:
+                conn.execute(sa.text(ddl))
+                changed = True
+        if changed:
+            conn.commit()

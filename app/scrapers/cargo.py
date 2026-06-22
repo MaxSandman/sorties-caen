@@ -1,19 +1,41 @@
 """
 Scraper for Le Cargö — https://lecargo.fr/programmation/
 
-Le Cargö is a well-known music venue. Their site uses event cards in a grid.
-Selector notes (update after first run):
-  - Event cards:   .event-card  or  .concert  or  article.programmation-item
-  - Title:         .event-title  or  h2/h3
-  - Date:          time[datetime]  or  .date
-  - Booking:       a.btn  or  a[href*='reservation']
+Real HTML structure observed:
+  - Cards:    li.o-grid  inside  div.programmation--full ul
+  - Title:    div.content h2  (small = subtitle/artist)
+  - Date:     span.date  →  "Jeudi 11 juin 2026"
+  - Hour:     span.hour  →  "19:00"
+  - Category: span.bubble (first)
+  - URL:      div.col-7 a  or  span.btn a
+  - Booking:  span.btn--dark a
+  - Image:    img[data-src]
+  - Price:    span.prices
 """
 
 import re
 from bs4 import BeautifulSoup
 from datetime import datetime
 from .base import BaseScraper, RawEvent
-from .theatre_ouest import _parse_french_date
+
+MONTHS_FR = {
+    "janvier": 1, "février": 2, "fevrier": 2, "mars": 3, "avril": 4,
+    "mai": 5, "juin": 6, "juillet": 7, "août": 8, "aout": 8,
+    "septembre": 9, "octobre": 10, "novembre": 11, "décembre": 12, "decembre": 12,
+}
+
+
+def _parse_cargo_date(text: str) -> datetime | None:
+    """Parse 'Jeudi 11 juin 2026' → datetime"""
+    text = text.strip().lower()
+    m = re.search(r"(\d{1,2})\s+(\w+)\s+(\d{4})", text)
+    if not m:
+        return None
+    day, month_str, year = int(m.group(1)), m.group(2), int(m.group(3))
+    month = MONTHS_FR.get(month_str)
+    if not month:
+        return None
+    return datetime(year, month, day)
 
 
 class CargoScraper(BaseScraper):
@@ -23,66 +45,53 @@ class CargoScraper(BaseScraper):
     list_url = "https://lecargo.fr/programmation/"
 
     async def _scrape(self) -> list[RawEvent]:
-        html = await self._get_page(self.list_url, wait_for=".event, article, .concert-card")
+        html = await self._get_page(self.list_url)
         soup = BeautifulSoup(html, "html.parser")
         events = []
 
-        cards = (
-            soup.select(".event-card")
-            or soup.select("article.event")
-            or soup.select(".concert-card")
-            or soup.select(".programmation-item")
-            or soup.select("article")
-            or soup.select(".event")
-        )
-
-        for card in cards:
+        for card in soup.select("div.programmation--full ul li.o-grid"):
             try:
-                title_el = (
-                    card.select_one("h2")
-                    or card.select_one("h3")
-                    or card.select_one(".event-title")
-                    or card.select_one(".artist")
-                    or card.select_one(".title")
-                )
-                if not title_el:
-                    continue
-                title = title_el.get_text(strip=True)
-                if len(title) < 2:
+                content = card.select_one("div.content")
+                if not content:
                     continue
 
-                date = None
-                time_el = card.select_one("time[datetime]")
-                if time_el:
-                    date = _parse_french_date(time_el.get("datetime", ""))
-                if not date:
-                    date_el = card.select_one(".date, .event-date, .concert-date")
-                    if date_el:
-                        date = _parse_french_date(date_el.get_text())
+                h2 = content.select_one("h2")
+                if not h2:
+                    continue
+                small = h2.select_one("small")
+                artist = small.get_text(strip=True) if small else None
+                if small:
+                    small.extract()
+                title = h2.get_text(strip=True)
+                if not title:
+                    continue
+
+                date_el = content.select_one("span.date")
+                if not date_el:
+                    continue
+                date = _parse_cargo_date(date_el.get_text())
                 if not date:
                     continue
 
-                time_str = None
-                if time_el:
-                    t = time_el.get_text(strip=True)
-                    m = re.search(r"\d{1,2}[h:]\d{0,2}", t)
-                    if m:
-                        time_str = m.group(0)
+                hour_el = content.select_one("span.hour")
+                time_str = hour_el.get_text(strip=True) if hour_el else None
 
-                link_el = card.select_one("a[href]")
+                cat_el = content.select_one("span.bubble")
+                category = cat_el.get_text(strip=True) if cat_el else "Concert"
+
+                price_el = content.select_one("span.prices")
+                price = price_el.get_text(strip=True) if price_el else None
+
+                link_el = card.select_one("div.col-7 a, div.tcol-5 a")
                 event_url = None
                 if link_el:
-                    href = link_el["href"]
+                    href = link_el.get("href", "")
                     event_url = href if href.startswith("http") else self.base_url + href
 
-                booking_el = card.select_one(
-                    "a[href*='reservation'], a[href*='billet'], "
-                    "a[href*='ticketmaster'], a[href*='weezevent'], "
-                    "a.btn-billet, a.reserver"
-                )
+                booking_el = content.select_one("span.btn--dark a")
                 booking_url = None
                 if booking_el:
-                    href = booking_el["href"]
+                    href = booking_el.get("href", "")
                     booking_url = href if href.startswith("http") else self.base_url + href
                 elif event_url:
                     booking_url = event_url
@@ -90,16 +99,14 @@ class CargoScraper(BaseScraper):
                 img_el = card.select_one("img")
                 image_url = None
                 if img_el:
-                    src = img_el.get("src") or img_el.get("data-src") or img_el.get("data-lazy-src", "")
-                    if src:
+                    src = (img_el.get("data-src") or img_el.get("src") or
+                           img_el.get("data-lazy-src") or img_el.get("data-original") or "")
+                    if src and not src.endswith(".svg") and not src.endswith("placeholder"):
                         image_url = src if src.startswith("http") else self.base_url + src
-
-                # Le Cargö does genre/category tags
-                cat_el = card.select_one(".genre, .category, .tag, .style")
-                category = cat_el.get_text(strip=True) if cat_el else "Musique"
 
                 events.append(RawEvent(
                     title=title,
+                    artist=artist,
                     venue=self.venue_name,
                     venue_key=self.venue_key,
                     date=date,
@@ -108,6 +115,7 @@ class CargoScraper(BaseScraper):
                     booking_url=booking_url,
                     image_url=image_url,
                     category=category,
+                    price=price,
                     external_id=self._make_external_id(title, date.date()),
                 ))
             except Exception:

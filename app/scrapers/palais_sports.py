@@ -16,9 +16,6 @@ from .theatre_ouest import _parse_french_date
 
 CANDIDATE_URLS = [
     "https://caenlamer.fr/palais-des-sports",
-    "https://caenlamer.fr/palais-des-sports/agenda",
-    "https://caenlamer.fr/palais-des-sports/programmation",
-    "https://caenlamer.fr/agenda?lieu=palais-des-sports",
 ]
 
 
@@ -28,28 +25,16 @@ class PalaisSportsScraper(BaseScraper):
     base_url = "https://caenlamer.fr"
 
     async def _scrape(self) -> list[RawEvent]:
-        html = ""
-        for url in CANDIDATE_URLS:
-            try:
-                html = await self._get_page(url, wait_for=".event, article, .agenda")
-                soup_test = BeautifulSoup(html, "html.parser")
-                cards = (
-                    soup_test.select(".event-item")
-                    or soup_test.select(".agenda-item")
-                    or soup_test.select("article")
-                )
-                if cards:
-                    break
-            except Exception:
-                continue
+        # Site uses Drupal AJAX views — requires JS rendering
+        html = await self._get_page_js(CANDIDATE_URLS[0], wait_for=".event-item, article, .views-row")
 
         soup = BeautifulSoup(html, "html.parser")
         events = []
 
         cards = (
-            soup.select(".event-item")
+            soup.select(".views-row")
+            or soup.select(".event-item")
             or soup.select(".agenda-item")
-            or soup.select(".event")
             or soup.select("article")
         )
 

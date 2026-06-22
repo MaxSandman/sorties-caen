@@ -1,70 +1,103 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" class="theme-auto">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Sorties Caen &#8212; Agenda des salles</title>
+  <title>Sorties Caen</title>
   <link rel="stylesheet" href="/static/css/style.css" />
 </head>
 <body>
   <header>
     <div class="header-inner">
-      <div class="header-title">
+      <div class="header-brand">
         <span class="logo">&#9835;</span>
         <h1>Sorties Caen</h1>
-        <span class="subtitle">Agenda des salles de spectacle</span>
+      </div>
+      <div class="header-search">
+        <input type="search" id="search-input" placeholder="Rechercher un titre, un artiste&#8230;" autocomplete="off" />
       </div>
       <div class="header-actions">
-        <button id="btn-scrape" class="btn btn-primary" title="Relancer la r&#233;cup&#233;ration des donn&#233;es">
-          &#8635; Mettre &#224; jour
+        <button id="btn-bell" class="btn-bell" aria-label="Nouvelles dates">
+          &#128276;<span id="unseen-badge" class="unseen-badge hidden"></span>
         </button>
+        <button id="btn-scrape" class="btn btn-primary">&#8635; Mettre &#224; jour</button>
         <span id="scrape-status" class="scrape-status"></span>
+        <button id="btn-theme" class="btn-theme" aria-label="Changer de th&#232;me" title="Changer de th&#232;me"></button>
       </div>
     </div>
   </header>
 
+  <!-- Panneau notifications cloche -->
+  <div id="notif-panel" class="notif-panel hidden" role="dialog" aria-label="Derniers ajouts">
+    <div class="notif-overlay" id="notif-overlay"></div>
+    <div class="notif-content">
+      <div class="notif-header">
+        <span class="notif-title">&#128276; Derniers ajouts</span>
+        <button id="btn-mark-all-seen" class="btn btn-ghost">Tout marquer comme vu</button>
+        <button class="notif-close" id="notif-close" aria-label="Fermer">&#10005;</button>
+      </div>
+      <div id="notif-body" class="notif-body"></div>
+    </div>
+  </div>
+
   <main>
-    <!-- Derni&#232;res sorties programm&#233;es -->
-    <section id="section-new" class="section-new">
-      <h2 class="section-title">
-        <span class="dot-new"></span>
-        Derni&#232;res sorties programm&#233;es
-        <span id="new-count" class="badge"></span>
-      </h2>
-      <div id="new-events-list" class="new-events-list">
-        <div class="loading">Chargement&#8230;</div>
+
+    <!-- Barre de contrôles -->
+    <div class="controls-bar">
+      <!-- Niveau 2a : sélecteur de vue -->
+      <div class="controls-views">
+        <div class="view-toggle" role="group" aria-label="Mode d&#39;affichage">
+          <button id="btn-view-list" class="view-btn active" onclick="setView('list')">&#8801; Liste</button>
+          <button id="btn-view-calendar" class="view-btn" onclick="setView('calendar')">&#8862; Calendrier</button>
+        </div>
+      </div>
+      <!-- Niveau 2b : filtres -->
+      <div class="controls-filters">
+        <div class="filter-group">
+          <span class="filter-label">P&#233;riode</span>
+          <div class="time-shortcuts">
+            <button class="time-btn" data-period="weekend" onclick="setPeriod('weekend')">Ce week-end</button>
+            <button class="time-btn" data-period="week"    onclick="setPeriod('week')">Cette semaine</button>
+            <button class="time-btn" data-period="month"   onclick="setPeriod('month')">Ce mois</button>
+          </div>
+        </div>
+        <div class="filter-group filter-group--venues">
+          <span class="filter-label">Salles</span>
+          <div id="venue-filters" class="venue-chips-row"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Vue fil chronologique (défaut) -->
+    <section id="view-list">
+      <div id="timeline" class="timeline">
+        <p class="loading">Chargement&#8230;</p>
       </div>
     </section>
 
-    <!-- Filtres de salles -->
-    <section class="section-filters">
-      <div id="venue-filters" class="venue-filters">
-        <button class="filter-btn active" data-venue="">Toutes les salles</button>
+    <!-- Vue calendrier (secondaire) -->
+    <section id="view-calendar" class="hidden">
+      <div class="section-calendar">
+        <div class="calendar-nav">
+          <button id="btn-prev" class="nav-btn">&#8249;</button>
+          <h2 id="calendar-title" class="calendar-title"></h2>
+          <button id="btn-next" class="nav-btn">&#8250;</button>
+        </div>
+        <div id="calendar" class="calendar-grid"></div>
+      </div>
+      <div class="section-events-cal">
+        <h3 class="section-title" id="cal-events-title">S&#233;lectionnez un jour</h3>
+        <div id="cal-events-list" class="timeline"></div>
       </div>
     </section>
 
-    <!-- Calendrier -->
-    <section class="section-calendar">
-      <div class="calendar-nav">
-        <button id="btn-prev" class="nav-btn">&#8249;</button>
-        <h2 id="calendar-title" class="calendar-title"></h2>
-        <button id="btn-next" class="nav-btn">&#8250;</button>
-      </div>
-      <div id="calendar" class="calendar-grid"></div>
-    </section>
-
-    <!-- Liste des &#233;v&#233;nements du jour / mois s&#233;lectionn&#233; -->
-    <section id="section-events" class="section-events">
-      <h2 class="section-title" id="events-list-title">&#201;v&#233;nements</h2>
-      <div id="events-list" class="events-list"></div>
-    </section>
   </main>
 
-  <!-- Modal d&#233;tail &#233;v&#233;nement -->
+  <!-- Modal détail événement -->
   <div id="modal" class="modal hidden">
     <div class="modal-overlay" id="modal-overlay"></div>
     <div class="modal-content">
-      <button class="modal-close" id="modal-close">&#10005;</button>
+      <button class="modal-close" id="modal-close" aria-label="Fermer">&#10005;</button>
       <div id="modal-body"></div>
     </div>
   </div>

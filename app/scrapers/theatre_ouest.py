@@ -1,21 +1,26 @@
 """
-Scraper for Théâtre à l'Ouest — https://theatrealouest.com/caen/spectacle/liste?sort=date-ASC
-
-Selector notes (adjust if the site structure changes):
-  - Event cards:   .spectacle-item  or  article.card  or  .show-item
-  - Title:         .spectacle-item .title  or  h2, h3 inside card
-  - Date:          .spectacle-item .date  or  time[datetime]
-  - Link:          a[href] on the card
-  - Image:         img[src] inside card
-  - Booking:       a.btn-reserver  or  a[href*="reservation"]
+Théâtre à l'Ouest — API JSON https://api.theatrealouest.com
+Endpoint: GET /shows/areas/{AREA_ID}?slots:to[min]=DATE&sort=slots:from|ASC&enabled=true&page=N
+Auth: POST /login {username, password} -> {token}
 """
 
-import re
-from bs4 import BeautifulSoup
-from datetime import datetime
+import os
+import re as _re
+import logging
+import httpx
+from datetime import datetime, date
 from .base import BaseScraper, RawEvent
 
-MONTHS_FR = {
+logger = logging.getLogger(__name__)
+
+CAEN_AREA_ID = "5e4e0cb9-ac24-40a9-8a79-216ec1b0b3f4"
+API_BASE = "https://api.theatrealouest.com"
+SITE_BASE = "https://theatrealouest.com"
+
+# Generic placeholder titles to discard
+_GENERIC_TITLES = {"nouveau spectacle", "coming soon", "à venir", "spectacle à venir"}
+
+_MONTHS_FR = {
     "janvier": 1, "février": 2, "mars": 3, "avril": 4,
     "mai": 5, "juin": 6, "juillet": 7, "août": 8,
     "septembre": 9, "octobre": 10, "novembre": 11, "décembre": 12,
@@ -24,115 +29,138 @@ MONTHS_FR = {
 
 def _parse_french_date(text: str) -> datetime | None:
     text = text.strip().lower()
-    # "vendredi 14 mars 2025" or "14 mars 2025"
-    m = re.search(r"(\d{1,2})\s+(\w+)\s+(\d{4})", text)
+    m = _re.search(r"(\d{1,2})\s+(\w+)\s+(\d{4})", text)
     if m:
         day, month_str, year = int(m.group(1)), m.group(2), int(m.group(3))
-        month = MONTHS_FR.get(month_str)
+        month = _MONTHS_FR.get(month_str)
         if month:
             return datetime(year, month, day)
-    # ISO format fallback
     try:
         return datetime.fromisoformat(text[:10])
     except Exception:
         return None
 
 
+def _clean_title(title: str) -> str:
+    """Strip extra whitespace and stray guillemets spacing."""
+    title = _re.sub(r"\s{2,}", " ", title).strip()
+    return title
+
+
 class TheatreOuestScraper(BaseScraper):
     venue_name = "Théâtre à l'Ouest"
     venue_key = "theatre_ouest"
-    base_url = "https://theatrealouest.com"
-    list_url = "https://theatrealouest.com/caen/spectacle/liste?sort=date-ASC"
 
     async def _scrape(self) -> list[RawEvent]:
-        html = await self._get_page(self.list_url, wait_for=".spectacle-item, article, .show-list")
-        soup = BeautifulSoup(html, "html.parser")
-        events = []
+        email = os.getenv("THEATRE_OUEST_EMAIL", "")
+        password = os.getenv("THEATRE_OUEST_PASSWORD", "")
+        if not email or not password:
+            logger.warning("THEATRE_OUEST_EMAIL/PASSWORD not set, skipping")
+            return []
 
-        # Try multiple card selectors — adjust to whatever class the real site uses
-        cards = (
-            soup.select(".spectacle-item")
-            or soup.select("article.spectacle")
-            or soup.select(".show-card")
-            or soup.select("li.event")
-            or soup.select("article")
-        )
+        headers = {"Content-Type": "application/json", "Accept": "application/json"}
+        async with httpx.AsyncClient(headers=headers, timeout=30) as client:
+            resp = await client.post(f"{API_BASE}/login",
+                                     json={"username": email, "password": password})
+            resp.raise_for_status()
+            token = resp.json()["token"]
+            client.headers["Authorization"] = f"Bearer {token}"
 
-        for card in cards:
-            try:
-                # Title
-                title_el = (
-                    card.select_one("h2")
-                    or card.select_one("h3")
-                    or card.select_one(".title")
-                    or card.select_one(".spectacle-title")
+            today = date.today().isoformat() + "T00:00:00"
+            events: list[RawEvent] = []
+            page = 1
+            total_pages = 1
+
+            while page <= total_pages:
+                params = {
+                    "slots:to[min]": today,
+                    "sort": "slots:from|ASC",
+                    "enabled": "true",
+                    "page": str(page),
+                }
+                resp = await client.get(
+                    f"{API_BASE}/shows/areas/{CAEN_AREA_ID}",
+                    params=params,
                 )
-                if not title_el:
-                    continue
-                title = title_el.get_text(strip=True)
+                if resp.status_code >= 500:
+                    logger.warning("API returned %s on page %d, stopping pagination", resp.status_code, page)
+                    break
+                resp.raise_for_status()
+                data = resp.json()
 
-                # Date — prefer <time datetime="...">
-                date = None
-                time_el = card.select_one("time[datetime]")
-                if time_el:
-                    date = _parse_french_date(time_el["datetime"])
-                if not date:
-                    date_el = card.select_one(".date, .spectacle-date, .event-date")
-                    if date_el:
-                        date = _parse_french_date(date_el.get_text())
-                if not date:
-                    continue
+                pagination = data.get("pagination", {})
+                total_pages = pagination.get("totalPages", 1)
+                members = data.get("members", [])
 
-                # Time (hour)
-                time_str = None
-                if time_el:
-                    t = time_el.get_text(strip=True)
-                    m = re.search(r"\d{1,2}[h:]\d{0,2}", t)
-                    if m:
-                        time_str = m.group(0)
+                for show in members:
+                    show_events = self._parse_show(show)
+                    events.extend(show_events)
 
-                # Event URL
-                link_el = card.select_one("a[href]")
-                event_url = None
-                if link_el:
-                    href = link_el["href"]
-                    event_url = href if href.startswith("http") else self.base_url + href
-
-                # Booking URL — look for a dedicated booking/réservation link
-                booking_el = card.select_one(
-                    "a[href*='reservation'], a[href*='billet'], a.btn-reserver, a.reserver"
-                )
-                booking_url = None
-                if booking_el:
-                    href = booking_el["href"]
-                    booking_url = href if href.startswith("http") else self.base_url + href
-                elif event_url:
-                    booking_url = event_url
-
-                # Image
-                img_el = card.select_one("img[src]")
-                image_url = None
-                if img_el:
-                    src = img_el.get("src") or img_el.get("data-src", "")
-                    image_url = src if src.startswith("http") else self.base_url + src
-
-                # Category
-                cat_el = card.select_one(".category, .genre, .type-spectacle")
-                category = cat_el.get_text(strip=True) if cat_el else "Spectacle"
-
-                events.append(RawEvent(
-                    title=title,
-                    venue=self.venue_name,
-                    venue_key=self.venue_key,
-                    date=date,
-                    time=time_str,
-                    event_url=event_url,
-                    booking_url=booking_url,
-                    image_url=image_url,
-                    category=category,
-                    external_id=self._make_external_id(title, date.date()),
-                ))
-            except Exception:
-                continue
+                page += 1
 
         return events
+
+    def _parse_show(self, show: dict) -> list[RawEvent]:
+        title = _clean_title(show.get("title", ""))
+        if not title or title.lower() in _GENERIC_TITLES:
+            return []
+
+        show_id = show.get("id", "")
+        slug = show.get("slug", "")
+
+        # Artist / company name (separate from title in the API)
+        artists_raw = show.get("artists", "") or ""
+        artist = artists_raw.strip() or None
+
+        # Event page URL
+        event_url = f"{SITE_BASE}/caen/spectacle/{slug}" if slug else None
+
+        # Booking URL: Angular router uses /reserver-places/{slug} for ticketing.
+        booking_url = f"{SITE_BASE}/caen/spectacle/reserver-places/{slug}" if slug else event_url
+
+        media = show.get("media")
+        logger.debug("[theatre_ouest] show=%s media type=%s value=%r", title[:40], type(media).__name__, media)
+        if isinstance(media, dict):
+            image_url = media.get("url") or media.get("src") or media.get("path") or None
+        elif isinstance(media, str) and media.startswith("http"):
+            image_url = media
+        elif isinstance(media, str) and media:
+            image_url = f"{API_BASE}/{media.lstrip('/')}"
+        else:
+            image_url = None
+        logger.debug("[theatre_ouest] show=%s image_url=%r", title[:40], image_url)
+
+        category = (
+            show.get("category", {}).get("name", "Spectacle")
+            if show.get("category")
+            else "Spectacle"
+        )
+
+        slots = show.get("slots")
+        if not slots or not isinstance(slots, dict):
+            return []
+
+        slot_from = slots.get("from")
+        if not slot_from:
+            return []
+
+        try:
+            dt = datetime.strptime(slot_from, "%Y-%m-%d %H:%M:%S")
+            event_date = datetime(dt.year, dt.month, dt.day)
+            time_str = dt.strftime("%Hh%M") if (dt.hour or dt.minute) else None
+        except Exception:
+            return []
+
+        return [RawEvent(
+            title=title,
+            artist=artist,
+            venue=self.venue_name,
+            venue_key=self.venue_key,
+            date=event_date,
+            time=time_str,
+            event_url=event_url,
+            booking_url=booking_url,
+            image_url=image_url,
+            category=category,
+            external_id=self._make_external_id(show_id or title, event_date.date()),
+        )]

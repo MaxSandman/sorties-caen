@@ -1,397 +1,731 @@
+'use strict';
 /* ============================================================
-   Sorties Caen -- Frontend JS
+   Sorties Caen — Frontend
    ============================================================ */
 
 const VENUE_COLOURS = {
-  theatre_ouest:    '#f97316',
-  zenith:           '#3b82f6',
-  cargo:            '#ec4899',
-  bbc:              '#f59e0b',
-  palais_sports:    '#10b981',
-  caen_evenements:  '#8b5cf6',
+  theatre_ouest:   '#22c55e',
+  zenith:          '#8b5cf6',
+  cargo:           '#ec4899',
+  bbc:             '#06b6d4',
+  palais_sports:   '#3b82f6',
+  caen_evenements: '#f59e0b',
 };
+const DEFAULT_COLOUR = '#6b7280';
 
-const VENUE_ICONS = {
-  theatre_ouest:   '\u2605',  // \u2605
-  zenith:          '\u25B6',  // \u25B6
-  cargo:           '\u266B',  // \u266B
-  bbc:             '\u266A',  // \u266A
-  palais_sports:   '\u26BD',  // \u26BD
-  caen_evenements: '\u2605',  // \u2605
-};
+const DAYS_LONG = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+const MONTHS_LONG = ['janvier','février','mars','avril','mai','juin',
+                     'juillet','août','septembre','octobre','novembre','décembre'];
+const DAYS_SHORT = ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
+const MONTHS_CAP = ['Janvier','Février','Mars','Avril','Mai','Juin',
+                    'Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 
-const DAYS_FR = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
-const MONTHS_FR = [
-  'Janvier','F\u00E9vrier','Mars','Avril','Mai','Juin',
-  'Juillet','Ao\u00FBt','Septembre','Octobre','Novembre','D\u00E9cembre'
-];
-
-// ---- State ----
-let state = {
-  currentYear:  new Date().getFullYear(),
-  currentMonth: new Date().getMonth() + 1,  // 1-based
-  selectedDay:  null,
-  activeVenue:  '',
+// ============================================================
+// État global
+// ============================================================
+const state = {
   allEvents:    [],
-  newEvents:    [],
+  view:         'list',
+  activeVenues: new Set(),
+  activePeriod: null,
+  searchQuery:  '',
+  calYear:      new Date().getFullYear(),
+  calMonth:     new Date().getMonth() + 1,
+  calDay:       null,
 };
 
-// ---- API helpers ----
-async function apiFetch(path, opts) {
-  opts = opts || {};
-  const res = await fetch(path, opts);
-  if (!res.ok) throw new Error('API error ' + res.status);
-  if (opts.method === 'POST') return {};
-  return res.json();
+// ============================================================
+// Utilitaires
+// ============================================================
+
+function esc(str) {
+  return String(str ?? '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-// ---- Colour helpers ----
-function venueColour(venueKey) {
-  return VENUE_COLOURS[venueKey] || '#6366f1';
+function venueColour(key) {
+  return VENUE_COLOURS[key] || DEFAULT_COLOUR;
 }
 
-function venueIcon(venueKey) {
-  return VENUE_ICONS[venueKey] || '\u2605';
+// Normalise toute heure en "HHhMM" (ex: "20:30"→"20h30", "21h"→"21h00")
+function normalizeTime(t) {
+  if (!t) return null;
+  t = String(t).trim();
+  let m = t.match(/^(\d{1,2})[hH](\d{0,2})$/);
+  if (m) return m[1].padStart(2,'0') + 'h' + (m[2] || '00').padStart(2,'0');
+  m = t.match(/^(\d{1,2}):(\d{2})$/);
+  if (m) return m[1].padStart(2,'0') + 'h' + m[2];
+  return t;
 }
 
-// ---- Date formatting ----
-function formatDate(dateStr) {
+// Temps relatif depuis un datetime UTC
+function relativeTime(dateStr) {
+  if (!dateStr) return '';
+  const iso = String(dateStr).replace(' ', 'T');
+  const t   = new Date(iso.endsWith('Z') ? iso : iso + 'Z').getTime();
+  const ms  = Date.now() - t;
+  if (ms < 0) return '';
+  const m = Math.floor(ms / 60000);
+  if (m < 2)  return "à l'instant";
+  if (m < 60) return `il y a ${m} min`;
+  const h = Math.floor(ms / 3600000);
+  if (h < 24) return `il y a ${h} h`;
+  const d = Math.floor(ms / 86400000);
+  if (d === 1) return 'hier';
+  if (d < 7)  return `il y a ${d} j`;
+  return new Date(t).toLocaleDateString('fr-FR', { day:'numeric', month:'long' });
+}
+
+// En-tête de jour : "Aujourd'hui", "Demain", ou "Jeudi 11 juin"
+function dayHeaderLabel(dateStr) {
+  const d     = new Date(dateStr);
+  const today = new Date(); today.setHours(0,0,0,0);
+  const tom   = new Date(today); tom.setDate(today.getDate() + 1);
+  if (d.toDateString() === today.toDateString()) return "Aujourd'hui";
+  if (d.toDateString() === tom.toDateString())   return 'Demain';
+  return `${DAYS_LONG[d.getDay()]} ${d.getDate()} ${MONTHS_LONG[d.getMonth()]}`;
+}
+
+// Date longue pour la modal
+function formatFullDate(dateStr, timeStr) {
   const d = new Date(dateStr);
-  return d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  let s = `${DAYS_LONG[d.getDay()]} ${d.getDate()} ${MONTHS_LONG[d.getMonth()]} ${d.getFullYear()}`;
+  const t = normalizeTime(timeStr);
+  if (t) s += ` à ${t}`;
+  return s;
 }
 
-// ---- XSS safety ----
-function escHtml(str) {
-  if (!str) return '';
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+// ============================================================
+// Téléchargement .ics
+// ============================================================
+function generateICS(eventId) {
+  const ev = state.allEvents.find(e => e.id === eventId);
+  if (!ev) return;
+
+  const d   = new Date(ev.date);
+  const pad = n => String(n).padStart(2, '0');
+  const dt  = `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}`;
+
+  const lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Sorties Caen//FR',
+    'BEGIN:VEVENT',
+    `UID:${ev.id}-${dt}@sorties-caen`,
+    `DTSTART;VALUE=DATE:${dt}`,
+    `DTEND;VALUE=DATE:${dt}`,
+    `SUMMARY:${(ev.title||'').replace(/[,;\\]/g,'\\$&')}`,
+    `LOCATION:${(ev.venue||'').replace(/[,;\\]/g,'\\$&')}`,
+    (ev.booking_url||ev.event_url) ? `URL:${ev.booking_url||ev.event_url}` : null,
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ].filter(Boolean);
+
+  const blob = new Blob([lines.join('\r\n')], { type: 'text/calendar;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = (ev.title||'event').replace(/[^a-z0-9]+/gi,'-').toLowerCase() + '.ics';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(a.href);
+}
+window.generateICS = generateICS;
+
+// ============================================================
+// Filtrage côté client
+// ============================================================
+
+function getFilteredEvents() {
+  const today = new Date(); today.setHours(0,0,0,0);
+  let evs = state.allEvents.filter(ev => new Date(ev.date) >= today);
+
+  if (state.searchQuery) {
+    const q = state.searchQuery.toLowerCase();
+    evs = evs.filter(ev =>
+      (ev.title  || '').toLowerCase().includes(q) ||
+      (ev.artist || '').toLowerCase().includes(q) ||
+      (ev.venue  || '').toLowerCase().includes(q)
+    );
+  }
+
+  if (state.activeVenues.size > 0) {
+    evs = evs.filter(ev => state.activeVenues.has(ev.venue_key));
+  }
+
+  if (state.activePeriod) {
+    evs = evs.filter(ev => periodMatch(ev));
+  }
+
+  return evs.sort((a, b) => new Date(a.date) - new Date(b.date));
 }
 
-// ---- Render "Derni\u00E8res sorties" ----
-function renderNewEvents(events) {
-  const container = document.getElementById('new-events-list');
-  const countEl   = document.getElementById('new-count');
+function periodMatch(ev) {
+  const d   = new Date(ev.date); d.setHours(0,0,0,0);
+  const now = new Date(); now.setHours(0,0,0,0);
 
-  if (events.length === 0) {
-    countEl.style.display = 'none';
-    container.innerHTML = '<p class="empty-state">Aucune nouvelle sortie ces 7 derniers jours.</p>';
+  if (state.activePeriod === 'weekend') {
+    const wd  = now.getDay();                    // 0=Dim, 6=Sam
+    const sat = new Date(now);
+    if      (wd === 0) sat.setDate(now.getDate() - 1); // dim → sam précédent
+    else if (wd !== 6) sat.setDate(now.getDate() + (6 - wd));
+    const sun = new Date(sat); sun.setDate(sat.getDate() + 1);
+    return d >= sat && d <= sun;
+  }
+
+  if (state.activePeriod === 'week') {
+    const end = new Date(now); end.setDate(now.getDate() + 6);
+    return d >= now && d <= end;
+  }
+
+  if (state.activePeriod === 'month') {
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  }
+
+  return true;
+}
+
+function getNewEvents() {
+  const today = new Date();
+  return state.allEvents
+    .filter(ev => !ev.seen && new Date(ev.date) >= today)
+    .sort((a, b) => {
+      const ta = new Date((a.first_seen_at || a.first_seen || 0));
+      const tb = new Date((b.first_seen_at || b.first_seen || 0));
+      return tb - ta;
+    });
+}
+
+// ============================================================
+// Panneau notifications (cloche)
+// ============================================================
+function updateBellBadge() {
+  const n     = getNewEvents().length;
+  const badge = document.getElementById('unseen-badge');
+  if (n > 0) {
+    badge.textContent = n > 99 ? '99+' : n;
+    badge.classList.remove('hidden');
+  } else {
+    badge.classList.add('hidden');
+  }
+}
+
+function notifEventHTML(ev) {
+  const colour  = venueColour(ev.venue_key);
+  const relTime = relativeTime(ev.first_seen_at || ev.first_seen);
+  const d       = new Date(ev.date);
+  const dateLbl = `${d.getDate()} ${MONTHS_LONG[d.getMonth()]}`;
+  const timeLbl = ev.time ? ` · ${normalizeTime(ev.time)}` : '';
+  const { primary, secondary } = eventLabels(ev);
+  const book = ev.booking_url
+    ? `<a class="btn-reserve-sm" href="${esc(ev.booking_url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Réserver</a>`
+    : '';
+  return `
+    <div class="notif-event" onclick="openModal(${ev.id});closeNotifPanel()">
+      ${thumbHTML(ev)}
+      <div class="notif-event-info">
+        <span class="notif-event-primary">${esc(primary)}</span>
+        ${secondary ? `<span class="notif-event-secondary">${esc(secondary)}</span>` : ''}
+        <span class="notif-event-meta">${esc(dateLbl)}${timeLbl}</span>
+        ${relTime ? `<span class="notif-rel-time">${esc(relTime)}</span>` : ''}
+      </div>
+      <div class="notif-event-actions">${book}</div>
+    </div>`;
+}
+
+function renderNotifPanel() {
+  const newEvs = getNewEvents();
+  const body   = document.getElementById('notif-body');
+  if (!body) return;
+
+  if (newEvs.length === 0) {
+    body.innerHTML = '<p class="notif-empty">Aucun nouvel événement.</p>';
     return;
   }
 
-  countEl.textContent  = events.length;
-  countEl.style.display = '';
+  // Group by venue
+  const byVenue = new Map();
+  newEvs.forEach(ev => {
+    if (!byVenue.has(ev.venue_key)) byVenue.set(ev.venue_key, { name: ev.venue, evs: [] });
+    byVenue.get(ev.venue_key).evs.push(ev);
+  });
 
-  container.innerHTML = events.map(function(ev) {
-    const colour = venueColour(ev.venue_key);
-    const icon   = venueIcon(ev.venue_key);
-    const book   = ev.booking_url
-      ? '<a class="card-book" href="' + escHtml(ev.booking_url) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">R\u00E9server &rarr;</a>'
-      : '';
-    return (
-      '<div class="new-event-card" data-venue="' + ev.venue_key + '" style="--venue-colour:' + colour + '" onclick="openModal(' + ev.id + ')">'
-      + '<div style="position:absolute;top:0;left:0;right:0;height:3px;background:' + colour + ';border-radius:10px 10px 0 0"></div>'
-      + '<div class="card-venue" style="color:' + colour + '">' + icon + ' ' + escHtml(ev.venue) + '</div>'
-      + '<div class="card-title">' + escHtml(ev.title) + '</div>'
-      + '<div class="card-date">' + formatDate(ev.date) + '</div>'
-      + book
-      + '</div>'
-    );
-  }).join('');
+  let html = '';
+  byVenue.forEach(({ name, evs }) => {
+    const colour = venueColour(evs[0].venue_key);
+    html += `<div class="notif-venue-group">
+      <div class="notif-venue-header">
+        <span class="notif-venue-dot" style="background:${colour}"></span>
+        <span class="notif-venue-name">${esc(name)}</span>
+        <span class="notif-venue-count">${evs.length}</span>
+      </div>
+      ${evs.map(notifEventHTML).join('')}
+    </div>`;
+  });
+
+  body.innerHTML = html;
 }
 
-// ---- Build calendar grid ----
-function buildCalendar(year, month, events) {
-  const grid = document.getElementById('calendar');
-  document.getElementById('calendar-title').textContent =
-    MONTHS_FR[month - 1] + ' ' + year;
+function openNotifPanel() {
+  renderNotifPanel();
+  document.getElementById('notif-panel').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
 
-  // Group events by day
+function closeNotifPanel() {
+  document.getElementById('notif-panel').classList.add('hidden');
+  document.body.style.overflow = '';
+}
+
+// Keep renderNewSection as a no-op alias so nothing breaks
+function renderNewSection() {
+  updateBellBadge();
+}
+
+// ============================================================
+// Rendu : une ligne événement (réutilisée dans fil + calendrier)
+// ============================================================
+
+// Retourne { primary, secondary } selon la règle artiste/titre.
+function eventLabels(ev) {
+  const title  = (ev.title  || '').trim();
+  const artist = (ev.artist || '').trim();
+  if (!artist || artist.toLowerCase() === title.toLowerCase()) {
+    return { primary: title, secondary: null };
+  }
+  return { primary: artist, secondary: title };
+}
+
+// Initiale de la salle (ex. "Le Cargö" → "C", "Zénith de Caen" → "Z")
+function venueInitial(name) {
+  const stripped = (name || '').replace(/^(le|la|les|l'|l')\s*/i, '').trim();
+  return (stripped[0] || '?').toUpperCase();
+}
+
+// Vignette affiche : image si dispo, tuile colorée sinon
+function thumbHTML(ev) {
+  const colour = venueColour(ev.venue_key);
+  if (ev.image_url) {
+    return `<div class="ev-thumb">
+      <img src="${esc(ev.image_url)}" alt="" loading="lazy" onerror="this.parentElement.classList.add('ev-thumb--fallback');this.remove()">
+      <div class="ev-thumb__fallback" style="--vc:${colour}" aria-hidden="true">${esc(venueInitial(ev.venue))}</div>
+    </div>`;
+  }
+  return `<div class="ev-thumb ev-thumb--fallback" style="--vc:${colour}" aria-hidden="true">${esc(venueInitial(ev.venue))}</div>`;
+}
+
+function eventRowHTML(ev) {
+  const colour        = venueColour(ev.venue_key);
+  const isNew         = !ev.seen;
+  const { primary, secondary } = eventLabels(ev);
+  const book = ev.booking_url
+    ? `<a class="btn-reserve" href="${esc(ev.booking_url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Réserver</a>`
+    : '';
+  return `
+    <div class="event-row${isNew ? ' is-new' : ''}" onclick="openModal(${ev.id})">
+      ${thumbHTML(ev)}
+      <span class="event-time">${esc(normalizeTime(ev.time) || '—')}</span>
+      <span class="venue-chip" style="--vc:${colour}">${esc(ev.venue)}</span>
+      <span class="event-title-block">
+        <span class="event-primary">${esc(primary)}${isNew ? ' <span class="badge-new">Nouveau</span>' : ''}</span>
+        ${secondary ? `<span class="event-secondary">${esc(secondary)}</span>` : ''}
+      </span>
+      <div class="event-actions">
+        ${book}
+        <button class="btn-ics" title="Ajouter à mon agenda" onclick="event.stopPropagation();generateICS(${ev.id})">📅</button>
+      </div>
+    </div>`;
+}
+
+// ============================================================
+// Rendu : fil chronologique
+// ============================================================
+function renderTimeline() {
+  const evs = getFilteredEvents();
+  const container = document.getElementById('timeline');
+
+  if (!evs.length) {
+    container.innerHTML = '<p class="empty-state">Aucun événement pour cette période.</p>';
+    return;
+  }
+
+  // Regrouper par jour (YYYY-MM-DD)
+  const groups = new Map();
+  evs.forEach(ev => {
+    const key = ev.date.slice(0, 10);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(ev);
+  });
+
+  let html = '';
+  groups.forEach((dayEvs, dateKey) => {
+    html += `<div class="day-group">
+      <div class="day-header">${esc(dayHeaderLabel(dateKey + 'T00:00:00'))}</div>
+      <div class="day-events">${dayEvs.map(eventRowHTML).join('')}</div>
+    </div>`;
+  });
+
+  container.innerHTML = html;
+}
+
+// ============================================================
+// Rendu : chips de salle (filtres)
+// ============================================================
+function renderVenueChips() {
+  const today  = new Date(); today.setHours(0,0,0,0);
+  const counts = {};
+  state.allEvents.forEach(ev => {
+    if (new Date(ev.date) < today) return;
+    if (!counts[ev.venue_key]) counts[ev.venue_key] = { name: ev.venue, n: 0 };
+    counts[ev.venue_key].n++;
+  });
+
+  document.getElementById('venue-filters').innerHTML = Object.entries(counts)
+    .sort((a, b) => b[1].n - a[1].n)
+    .map(([key, { name, n }]) => {
+      const colour = venueColour(key);
+      const active = state.activeVenues.has(key);
+      return `<button class="venue-chip-btn${active ? ' active' : ''}" data-venue="${key}"
+        style="--vc:${colour}" onclick="toggleVenue('${key}')">
+        ${esc(name)}<span class="chip-count">${n}</span>
+      </button>`;
+    }).join('');
+}
+
+// ============================================================
+// Calendrier
+// ============================================================
+function buildCalendar(year, month, events) {
+  document.getElementById('calendar-title').textContent =
+    `${MONTHS_CAP[month - 1]} ${year}`;
+
   const byDay = {};
-  events.forEach(function(ev) {
+  events.forEach(ev => {
     const d = new Date(ev.date);
     if (d.getFullYear() === year && d.getMonth() + 1 === month) {
-      const key = d.getDate();
-      if (!byDay[key]) byDay[key] = [];
-      byDay[key].push(ev);
+      const k = d.getDate();
+      if (!byDay[k]) byDay[k] = [];
+      byDay[k].push(ev);
     }
   });
 
-  // First weekday of month (Mon=0)
-  const firstDay = new Date(year, month - 1, 1);
-  let startOffset = firstDay.getDay() - 1;
+  const firstDay    = new Date(year, month - 1, 1);
+  let startOffset   = firstDay.getDay() - 1;
   if (startOffset < 0) startOffset = 6;
-
   const daysInMonth = new Date(year, month, 0).getDate();
   const daysInPrev  = new Date(year, month - 1, 0).getDate();
   const today       = new Date();
   const isThisMonth = today.getFullYear() === year && today.getMonth() + 1 === month;
 
-  let html = DAYS_FR.map(function(d) {
-    return '<div class="cal-header">' + d + '</div>';
-  }).join('');
+  let html = DAYS_SHORT.map(d => `<div class="cal-header">${d}</div>`).join('');
 
-  // Previous month overflow
   for (let i = startOffset - 1; i >= 0; i--) {
-    html += '<div class="cal-day other-month"><div class="day-num">' + (daysInPrev - i) + '</div></div>';
+    html += `<div class="cal-day other-month"><div class="day-num">${daysInPrev - i}</div></div>`;
   }
 
-  // Current month
   for (let day = 1; day <= daysInMonth; day++) {
-    const dayEvents = byDay[day] || [];
-    const isToday   = isThisMonth && today.getDate() === day;
-    const isSel     = state.selectedDay === day;
-    const hasEv     = dayEvents.length > 0;
+    const dayEvs  = byDay[day] || [];
+    const isToday = isThisMonth && today.getDate() === day;
+    const isSel   = state.calDay === day;
+    const hasEv   = dayEvs.length > 0;
 
-    const dots = dayEvents.slice(0, 6).map(function(ev) {
-      return '<div class="day-dot" style="background:' + venueColour(ev.venue_key) + '" title="' + escHtml(ev.title) + '"></div>';
+    const MAX_LINES = 3;
+    const shown = dayEvs.slice(0, MAX_LINES);
+    const rest  = dayEvs.length - MAX_LINES;
+    const lines = shown.map(ev => {
+      const { primary } = eventLabels(ev);
+      return `<div class="cal-ev-line">
+        <span class="cal-ev-dot" style="background:${venueColour(ev.venue_key)}"></span>
+        <span class="cal-ev-text">${esc(primary)}</span>
+      </div>`;
     }).join('');
+    const more = rest > 0
+      ? `<div class="cal-ev-more">+${rest} autre${rest > 1 ? 's' : ''}</div>` : '';
 
-    const countBadge = dayEvents.length > 6
-      ? '<span class="day-events-count">+' + dayEvents.length + '</span>'
-      : '';
+    const cls = ['cal-day',
+      hasEv && 'has-events', isToday && 'today', isSel && 'selected'
+    ].filter(Boolean).join(' ');
 
-    const classes = 'cal-day'
-      + (hasEv ? ' has-events' : '')
-      + (isToday ? ' today' : '')
-      + (isSel ? ' selected' : '');
-
-    html += '<div class="' + classes + '" data-day="' + day + '"'
-      + (hasEv ? ' onclick="selectDay(' + day + ')"' : '')
-      + '>'
-      + '<div class="day-num">' + day + '</div>'
-      + '<div class="day-dots">' + dots + '</div>'
-      + countBadge
-      + '</div>';
+    html += `<div class="${cls}"${hasEv ? ` onclick="calSelectDay(${day})"` : ''}>
+      <div class="day-num">${day}</div>
+      ${lines}${more}
+    </div>`;
   }
 
-  // Next month overflow
   const totalCells = startOffset + daysInMonth;
   const remaining  = totalCells % 7 === 0 ? 0 : 7 - (totalCells % 7);
   for (let i = 1; i <= remaining; i++) {
-    html += '<div class="cal-day other-month"><div class="day-num">' + i + '</div></div>';
+    html += `<div class="cal-day other-month"><div class="day-num">${i}</div></div>`;
   }
 
-  grid.innerHTML = html;
+  document.getElementById('calendar').innerHTML = html;
 }
 
-// ---- Render events list ----
-function renderEventsList(events, title) {
-  document.getElementById('events-list-title').textContent = title;
-  const container = document.getElementById('events-list');
+function calSelectDay(day) {
+  state.calDay = day;
+  const evs = getFilteredEvents().filter(ev => {
+    const d = new Date(ev.date);
+    return d.getFullYear() === state.calYear &&
+           d.getMonth() + 1 === state.calMonth &&
+           d.getDate() === day;
+  });
+  buildCalendar(state.calYear, state.calMonth, getFilteredEvents());
 
-  if (events.length === 0) {
-    container.innerHTML = '<p class="empty-state">Aucun \u00E9v\u00E9nement pour cette p\u00E9riode.</p>';
+  const title = `${day} ${MONTHS_LONG[state.calMonth - 1]} ${state.calYear}`;
+  document.getElementById('cal-events-title').textContent = title;
+  const container = document.getElementById('cal-events-list');
+  if (!evs.length) {
+    container.innerHTML = '<p class="empty-state">Aucun événement ce jour.</p>';
     return;
   }
-
-  container.innerHTML = events.map(function(ev) {
-    const colour = venueColour(ev.venue_key);
-    const icon   = venueIcon(ev.venue_key);
-    const imgEl  = ev.image_url
-      ? '<img class="event-row-img" src="' + escHtml(ev.image_url) + '" alt="" onerror="this.style.display=\'none\'">'
-      : '<div class="event-row-img-placeholder">' + icon + '</div>';
-    const newBadge = ev.is_new ? '<span class="badge-new">NOUVEAU</span>' : '';
-    const timeStr  = ev.time ? ' \u00E0 ' + ev.time : '';
-
-    return (
-      '<div class="event-row" data-venue="' + ev.venue_key + '" onclick="openModal(' + ev.id + ')">'
-      + '<div class="event-row-color" style="background:' + colour + '"></div>'
-      + imgEl
-      + '<div class="event-row-info">'
-      + '<div class="event-row-title">' + escHtml(ev.title) + '</div>'
-      + '<div class="event-row-meta">' + formatDate(ev.date) + timeStr + '</div>'
-      + '<div class="event-row-venue" style="color:' + colour + '">' + icon + ' ' + escHtml(ev.venue) + '</div>'
-      + '</div>'
-      + '<div class="event-row-actions">' + newBadge + '</div>'
-      + '</div>'
-    );
-  }).join('');
+  container.innerHTML = `<div class="day-events">${evs.map(eventRowHTML).join('')}</div>`;
 }
+window.calSelectDay = calSelectDay;
 
-// ---- Select a day ----
-function selectDay(day) {
-  state.selectedDay = day;
-
-  const filtered = state.allEvents.filter(function(ev) {
-    const d = new Date(ev.date);
-    return (
-      d.getFullYear() === state.currentYear &&
-      d.getMonth() + 1 === state.currentMonth &&
-      d.getDate() === day &&
-      (!state.activeVenue || ev.venue_key === state.activeVenue)
-    );
-  });
-
-  const dayLabel = day + ' ' + MONTHS_FR[state.currentMonth - 1] + ' ' + state.currentYear;
-  renderEventsList(filtered, '\u00C9v\u00E9nements du ' + dayLabel);
-  buildCalendar(state.currentYear, state.currentMonth, getFilteredEvents());
-}
-
-// ---- Filter helpers ----
-function getFilteredEvents() {
-  return state.allEvents.filter(function(ev) {
-    return !state.activeVenue || ev.venue_key === state.activeVenue;
-  });
-}
-
-function getMonthEvents() {
-  return getFilteredEvents().filter(function(ev) {
-    const d = new Date(ev.date);
-    return d.getFullYear() === state.currentYear && d.getMonth() + 1 === state.currentMonth;
-  });
-}
-
-// ---- Modal ----
+// ============================================================
+// Modal
+// ============================================================
 function openModal(eventId) {
-  const ev = state.allEvents.find(function(e) { return e.id === eventId; });
+  const ev = state.allEvents.find(e => e.id === eventId);
   if (!ev) return;
 
   const colour  = venueColour(ev.venue_key);
-  const icon    = venueIcon(ev.venue_key);
-  const timeStr = ev.time ? ' \u00E0 ' + ev.time : '';
-  const imgHtml = ev.image_url
-    ? '<img class="modal-img" src="' + escHtml(ev.image_url) + '" alt="">'
-    : '';
-  const descHtml = ev.description
-    ? '<p class="modal-desc">' + escHtml(ev.description) + '</p>'
-    : '';
-  const bookHtml = ev.booking_url
-    ? '<a class="modal-book" href="' + escHtml(ev.booking_url) + '" target="_blank" rel="noopener">&#127903; R\u00E9server des billets</a>'
-    : '';
+  const dateStr = formatFullDate(ev.date, ev.time);
 
-  document.getElementById('modal-body').innerHTML = (
-    imgHtml
-    + '<div class="modal-venue-tag" style="background:' + colour + '">' + icon + ' ' + escHtml(ev.venue) + '</div>'
-    + '<h2 class="modal-title">' + escHtml(ev.title) + '</h2>'
-    + '<p class="modal-date">&#128197; ' + formatDate(ev.date) + timeStr + '</p>'
-    + (ev.price    ? '<p class="modal-date">Prix&nbsp;: ' + escHtml(ev.price)    + '</p>' : '')
-    + (ev.category ? '<p class="modal-date">Cat\u00E9gorie&nbsp;: ' + escHtml(ev.category) + '</p>' : '')
-    + descHtml
-    + bookHtml
-  );
+  document.getElementById('modal-body').innerHTML = `
+    <div class="modal-layout">
+      ${ev.image_url ? `<div class="modal-image">
+        <img src="${esc(ev.image_url)}" alt="${esc(ev.title)}" loading="lazy">
+      </div>` : ''}
+      <div class="modal-info">
+        <div class="modal-venue-tag" style="background:${colour}">${esc(ev.venue)}</div>
+        <h2 class="modal-title">${esc(ev.title)}</h2>
+        ${ev.artist ? `<p class="modal-artist">${esc(ev.artist)}</p>` : ''}
+        <p class="modal-date">📅 ${dateStr}</p>
+        ${ev.category ? `<p class="modal-meta">Catégorie : ${esc(ev.category)}</p>` : ''}
+        ${ev.price    ? `<p class="modal-meta">Tarif : ${esc(ev.price)}</p>` : ''}
+        ${ev.description ? `<p class="modal-desc">${esc(ev.description)}</p>` : ''}
+        <div class="modal-actions">
+          ${ev.booking_url
+            ? `<a class="modal-book" href="${esc(ev.booking_url)}" target="_blank" rel="noopener">🎟 Réserver des billets</a>`
+            : ''}
+          <button class="btn btn-secondary" onclick="generateICS(${ev.id})">📅 Ajouter à mon agenda</button>
+        </div>
+      </div>
+    </div>`;
+
   document.getElementById('modal').classList.remove('hidden');
+
+  // Marquage automatique comme vu
+  if (!ev.seen) {
+    ev.seen = true;
+    markSeen([ev.id]);
+    updateBellBadge();
+    renderTimeline();
+  }
 }
+window.openModal = openModal;
 
 function closeModal() {
   document.getElementById('modal').classList.add('hidden');
 }
 
-// ---- Navigate months ----
-async function goToMonth(year, month) {
-  if (month < 1)  { month = 12; year--; }
-  if (month > 12) { month = 1;  year++; }
-  state.currentYear  = year;
-  state.currentMonth = month;
-  state.selectedDay  = null;
-  await loadEvents();
-}
-
-// ---- Load & refresh ----
-async function loadEvents() {
+// ============================================================
+// Marquage comme vu
+// ============================================================
+async function markSeen(ids) {
   try {
-    const year  = state.currentYear;
-    const month = state.currentMonth;
-    let url = '/api/events?year=' + year + '&month=' + month;
-    if (state.activeVenue) url += '&venue_key=' + encodeURIComponent(state.activeVenue);
-
-    state.allEvents = await apiFetch(url);
-    buildCalendar(year, month, getFilteredEvents());
-    renderEventsList(getMonthEvents(), MONTHS_FR[month - 1] + ' ' + year);
-  } catch (e) {
-    console.error(e);
-  }
-}
-
-async function loadNewEvents() {
-  try {
-    state.newEvents = await apiFetch('/api/events/new?days=7');
-    renderNewEvents(state.newEvents);
-  } catch (e) {
-    console.error(e);
-  }
-}
-
-async function loadVenueFilters() {
-  try {
-    const venues    = await apiFetch('/api/venues');
-    const container = document.getElementById('venue-filters');
-
-    venues.forEach(function(v) {
-      const btn    = document.createElement('button');
-      btn.className      = 'filter-btn';
-      btn.dataset.venue  = v.key;
-      const colour = venueColour(v.key);
-      const icon   = venueIcon(v.key);
-      btn.innerHTML = icon + ' ' + escHtml(v.name) + ' <small>(' + v.count + ')</small>';
-      btn.onclick   = function() { setVenueFilter(v.key); };
-      container.appendChild(btn);
+    await fetch('/api/events/mark-seen', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ ids: ids ?? null }),
     });
-  } catch (e) {
-    console.error(e);
+  } catch (e) { console.error('markSeen:', e); }
+}
+
+async function markAllSeen() {
+  state.allEvents.forEach(ev => { ev.seen = true; });
+  updateBellBadge();
+  renderNotifPanel();
+  renderTimeline();
+  await markSeen(null);
+}
+
+// ============================================================
+// Contrôles vue / filtres
+// ============================================================
+function setView(v) {
+  state.view = v;
+  document.getElementById('view-list').classList.toggle('hidden', v !== 'list');
+  document.getElementById('view-calendar').classList.toggle('hidden', v !== 'calendar');
+  document.getElementById('btn-view-list').classList.toggle('active', v === 'list');
+  document.getElementById('btn-view-calendar').classList.toggle('active', v === 'calendar');
+  if (v === 'calendar') {
+    buildCalendar(state.calYear, state.calMonth, getFilteredEvents());
+    document.getElementById('cal-events-title').textContent =
+      `${MONTHS_CAP[state.calMonth - 1]} ${state.calYear}`;
+    document.getElementById('cal-events-list').innerHTML = '';
   }
 }
+window.setView = setView;
 
-function setVenueFilter(venueKey) {
-  state.activeVenue = venueKey;
-  state.selectedDay = null;
-
-  document.querySelectorAll('.filter-btn').forEach(function(btn) {
-    btn.classList.toggle('active', btn.dataset.venue === venueKey);
+function setPeriod(period) {
+  state.activePeriod = state.activePeriod === period ? null : period;
+  document.querySelectorAll('.time-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.period === state.activePeriod);
   });
-
-  buildCalendar(state.currentYear, state.currentMonth, getFilteredEvents());
-  renderEventsList(getMonthEvents(), MONTHS_FR[state.currentMonth - 1] + ' ' + state.currentYear);
+  renderTimeline();
+  if (state.view === 'calendar')
+    buildCalendar(state.calYear, state.calMonth, getFilteredEvents());
 }
+window.setPeriod = setPeriod;
 
-// ---- Manual scrape ----
+function toggleVenue(key) {
+  if (state.activeVenues.has(key)) state.activeVenues.delete(key);
+  else                             state.activeVenues.add(key);
+  renderVenueChips();
+  renderTimeline();
+  if (state.view === 'calendar')
+    buildCalendar(state.calYear, state.calMonth, getFilteredEvents());
+}
+window.toggleVenue = toggleVenue;
+
+// ============================================================
+// Mise à jour manuelle (scrape)
+// ============================================================
 async function triggerScrape() {
   const btn    = document.getElementById('btn-scrape');
   const status = document.getElementById('scrape-status');
-  btn.disabled     = true;
-  btn.textContent  = 'En cours\u2026';
-  status.textContent = 'R\u00E9cup\u00E9ration des donn\u00E9es\u2026';
+  btn.disabled    = true;
+  btn.textContent = 'En cours…';
+  status.textContent = 'Récupération en cours…';
 
   try {
-    await apiFetch('/api/scrape', { method: 'POST' });
-    status.textContent = 'Mise \u00E0 jour lanc\u00E9e, rechargement dans 20s\u2026';
-    setTimeout(async function() {
-      await Promise.all([loadEvents(), loadNewEvents(), loadVenueFilters()]);
-      status.textContent = 'Mis \u00E0 jour !';
-      setTimeout(function() { status.textContent = ''; }, 3000);
+    await fetch('/api/scrape', { method: 'POST' });
+    status.textContent = 'Lancé — rechargement dans 20 s…';
+    setTimeout(async () => {
+      await loadAll();
+      status.textContent = 'Mis à jour !';
+      setTimeout(() => { status.textContent = ''; }, 3000);
     }, 20000);
   } catch (e) {
-    status.textContent = 'Erreur lors de la mise \u00E0 jour';
+    status.textContent = 'Erreur lors de la mise à jour';
   } finally {
     btn.disabled    = false;
-    btn.textContent = '\u8635 Mettre \u00E0 jour';
+    btn.textContent = '↻ Mettre à jour';
   }
 }
 
-// ---- Init ----
-async function init() {
-  document.getElementById('btn-prev').onclick = function() {
-    goToMonth(state.currentYear, state.currentMonth - 1);
-  };
-  document.getElementById('btn-next').onclick = function() {
-    goToMonth(state.currentYear, state.currentMonth + 1);
+// ============================================================
+// Thème (Clair / Sombre / Auto)
+// ============================================================
+function _isEffectivelyLight(theme) {
+  if (theme === 'light') return true;
+  if (theme === 'dark')  return false;
+  return window.matchMedia('(prefers-color-scheme: light)').matches;
+}
+
+function applyTheme(theme) {
+  document.documentElement.classList.remove('theme-light', 'theme-dark', 'theme-auto');
+  document.documentElement.classList.add('theme-' + theme);
+  const btn = document.getElementById('btn-theme');
+  if (btn) btn.textContent = _isEffectivelyLight(theme) ? '☽' : '☀';
+  localStorage.setItem('sc-theme', theme);
+}
+
+function initTheme() {
+  const saved = localStorage.getItem('sc-theme') || 'auto';
+  applyTheme(saved);
+  // Met à jour l'icône si la préférence système change (mode auto)
+  window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
+    const current = localStorage.getItem('sc-theme') || 'auto';
+    if (current === 'auto') applyTheme('auto');
+  });
+}
+
+// ============================================================
+// Chargement
+// ============================================================
+async function loadAll() {
+  try {
+    state.allEvents = await fetch('/api/events').then(r => r.json());
+    updateBellBadge();
+    renderVenueChips();
+    if (state.view === 'list') {
+      renderTimeline();
+    } else {
+      buildCalendar(state.calYear, state.calMonth, getFilteredEvents());
+    }
+  } catch (e) {
+    document.getElementById('timeline').innerHTML =
+      '<p class="empty-state">Impossible de charger les événements.</p>';
+    console.error('loadAll:', e);
+  }
+}
+
+// ============================================================
+// Init
+// ============================================================
+function init() {
+  // Thème : bascule clair ↔ sombre au clic
+  initTheme();
+  document.getElementById('btn-theme').onclick = () => {
+    const next = _isEffectivelyLight(localStorage.getItem('sc-theme') || 'auto') ? 'dark' : 'light';
+    applyTheme(next);
   };
 
+  // Cloche → ouvre le panneau notifications
+  document.getElementById('btn-bell').onclick = () => {
+    const panel = document.getElementById('notif-panel');
+    if (panel.classList.contains('hidden')) openNotifPanel();
+    else closeNotifPanel();
+  };
+
+  // Fermeture panneau notifications
+  document.getElementById('notif-close').onclick   = closeNotifPanel;
+  document.getElementById('notif-overlay').onclick = closeNotifPanel;
+
+  // Modal
   document.getElementById('modal-close').onclick   = closeModal;
   document.getElementById('modal-overlay').onclick = closeModal;
-  document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') closeModal();
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { closeModal(); closeNotifPanel(); }
   });
 
+  // Bouton mise à jour
   document.getElementById('btn-scrape').onclick = triggerScrape;
 
-  document.querySelector('.filter-btn[data-venue=""]').onclick = function() {
-    setVenueFilter('');
+  // Tout marquer comme vu (dans le panneau)
+  document.getElementById('btn-mark-all-seen').onclick = markAllSeen;
+
+  // Recherche en direct
+  document.getElementById('search-input').addEventListener('input', e => {
+    state.searchQuery = e.target.value.trim();
+    renderTimeline();
+    if (state.view === 'calendar')
+      buildCalendar(state.calYear, state.calMonth, getFilteredEvents());
+  });
+
+  // Navigation calendrier
+  document.getElementById('btn-prev').onclick = () => {
+    let { calYear: y, calMonth: m } = state;
+    m--; if (m < 1) { m = 12; y--; }
+    state.calYear = y; state.calMonth = m; state.calDay = null;
+    buildCalendar(y, m, getFilteredEvents());
+    document.getElementById('cal-events-title').textContent = `${MONTHS_CAP[m-1]} ${y}`;
+    document.getElementById('cal-events-list').innerHTML = '';
+  };
+  document.getElementById('btn-next').onclick = () => {
+    let { calYear: y, calMonth: m } = state;
+    m++; if (m > 12) { m = 1; y++; }
+    state.calYear = y; state.calMonth = m; state.calDay = null;
+    buildCalendar(y, m, getFilteredEvents());
+    document.getElementById('cal-events-title').textContent = `${MONTHS_CAP[m-1]} ${y}`;
+    document.getElementById('cal-events-list').innerHTML = '';
   };
 
-  await Promise.all([loadVenueFilters(), loadNewEvents(), loadEvents()]);
+  loadAll();
 }
 
 document.addEventListener('DOMContentLoaded', init);

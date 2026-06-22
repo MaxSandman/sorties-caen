@@ -9,12 +9,14 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from typing import Optional
+from typing import List, Optional
 
 from .database import get_db, init_db, Event, ScrapeLog
 from .scheduler import start_scheduler, stop_scheduler, run_all_scrapers
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 
@@ -55,7 +57,9 @@ class EventOut(BaseModel):
     price: Optional[str]
     category: Optional[str]
     is_new: bool
+    seen: bool
     first_seen: datetime
+    first_seen_at: datetime  # alias for first_seen, for forward-compat
 
     class Config:
         from_attributes = True
@@ -162,8 +166,33 @@ def get_scrape_logs(limit: int = 50, db: Session = Depends(get_db)):
     return db.query(ScrapeLog).order_by(ScrapeLog.scraped_at.desc()).limit(limit).all()
 
 
-@app.delete("/api/events/mark-seen")
-def mark_all_seen(db: Session = Depends(get_db)):
-    db.query(Event).filter(Event.is_new == True).update({"is_new": False})
+class MarkSeenRequest(BaseModel):
+    ids: Optional[List[int]] = None  # if None, mark all
+
+
+@app.post("/api/events/mark-seen")
+def mark_seen(body: MarkSeenRequest = None, db: Session = Depends(get_db)):
+    """Mark specific events (by id list) or all events as seen."""
+    q = db.query(Event)
+    if body and body.ids:
+        q = q.filter(Event.id.in_(body.ids))
+    q.update({"seen": True, "is_new": False}, synchronize_session=False)
     db.commit()
     return {"status": "ok"}
+
+
+@app.delete("/api/events/mark-seen")
+def mark_all_seen_legacy(db: Session = Depends(get_db)):
+    """Legacy endpoint — marks all events as seen."""
+    db.query(Event).update({"seen": True, "is_new": False}, synchronize_session=False)
+    db.commit()
+    return {"status": "ok"}
+
+
+@app.get("/api/new-count")
+def get_new_count(db: Session = Depends(get_db)):
+    """Return count of events not yet seen by the user."""
+    count = db.query(Event).filter(Event.seen == False).filter(
+        Event.date >= datetime.utcnow()
+    ).count()
+    return {"count": count}
