@@ -38,6 +38,21 @@ def _parse_bbc_date(text: str):
     return datetime(year, month, day), time_str
 
 
+def _smallest_srcset(srcset: str, min_width: int = 300) -> str | None:
+    """Pick the smallest srcset candidate at least `min_width` wide.
+
+    Full-size posters are ~400 KB PNGs, too heavy for ntfy to show inline
+    on iOS; the 300w variant is ~50 KB.
+    """
+    candidates = []
+    for part in srcset.split(","):
+        bits = part.strip().split()
+        if len(bits) == 2 and bits[1].endswith("w") and bits[1][:-1].isdigit():
+            candidates.append((int(bits[1][:-1]), bits[0]))
+    wide_enough = sorted(c for c in candidates if c[0] >= min_width)
+    return wide_enough[0][1] if wide_enough else None
+
+
 class BBCScraper(BaseScraper):
     venue_name = "Le BBC (Big Band Café)"
     venue_key = "bbc"
@@ -71,7 +86,8 @@ class BBCScraper(BaseScraper):
                 img_el = card.select_one(".post-image img") or card.select_one("img")
                 image_url = None
                 if img_el:
-                    src = (img_el.get("src") or img_el.get("data-src") or
+                    src = (_smallest_srcset(img_el.get("srcset") or "") or
+                           img_el.get("src") or img_el.get("data-src") or
                            img_el.get("data-lazy-src") or img_el.get("data-original") or "")
                     if src and not src.endswith(".svg") and "placeholder" not in src:
                         image_url = src if src.startswith("http") else self.base_url + src
