@@ -14,7 +14,7 @@ from typing import List, Optional
 from .database import get_db, init_db, Event, ScrapeLog
 from .scheduler import start_scheduler, stop_scheduler, run_all_scrapers
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("httpcore").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
