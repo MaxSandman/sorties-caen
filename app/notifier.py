@@ -16,6 +16,7 @@ _MONTHS_FR = [
     "janvier", "février", "mars", "avril", "mai", "juin",
     "juillet", "août", "septembre", "octobre", "novembre", "décembre",
 ]
+_SUMMARY_LINES = 10
 
 
 def _fmt_date(ev: "Event") -> str:
@@ -28,12 +29,20 @@ def _rfc2047(s: str) -> str:
     return "=?utf-8?b?" + base64.b64encode(s.encode()).decode() + "?="
 
 
+def _labels(ev: "Event") -> tuple[str, str | None]:
+    """Same rule as eventLabels() in app.js: artist first, show title second."""
+    title = (ev.title or "").strip()
+    artist = (ev.artist or "").strip()
+    if not artist or artist.lower() == title.lower():
+        return title, None
+    return artist, title
+
+
 def _build_body(ev: "Event") -> str:
     lines = []
-    # Scrapers store the headliner in `title`; `artist` is an optional extra
-    # (company, support act…) shown only when it adds information.
-    if ev.artist and ev.artist.strip().lower() != ev.title.strip().lower():
-        lines.append(f"🎤 {ev.artist}")
+    _, secondary = _labels(ev)
+    if secondary:
+        lines.append(f"🎭 {secondary}")
     lines.append(f"📍 {ev.venue}")
     when = _fmt_date(ev)
     if ev.time:
@@ -53,8 +62,35 @@ def _build_actions(ev: "Event", app_base: str) -> list[dict]:
     return actions
 
 
+def _send_summary(events: list["Event"], ntfy_endpoint: str, app_base: str) -> None:
+    count = len(events)
+    lines = []
+    for ev in sorted(events, key=lambda e: e.date)[:_SUMMARY_LINES]:
+        primary, _ = _labels(ev)
+        lines.append(f"• {primary} — {ev.venue} — {ev.date.strftime('%d/%m')}")
+    if count > _SUMMARY_LINES:
+        lines.append(f"… et {count - _SUMMARY_LINES} autres")
+
+    try:
+        httpx.post(
+            ntfy_endpoint,
+            content="\n".join(lines).encode("utf-8"),
+            headers={
+                "Title": _rfc2047(f"🎵 {count} nouvelles dates à Caen"),
+                "Priority": "default",
+                "Tags": "ticket",
+                "Actions": json.dumps([{"action": "view", "label": "Tout voir", "url": f"{app_base}/"}]),
+            },
+            timeout=10,
+        )
+        logger.info("ntfy summary notification sent: %d events", count)
+    except Exception as exc:
+        logger.warning("ntfy notification failed: %s", exc)
+
+
 def send_new_events_notification(events: list["Event"]) -> None:
-    """Send one ntfy notification per new event.
+    """Send one ntfy notification per new event, or a single summary when
+    there are too many (first run, database reset…) to avoid flooding.
 
     No-op if NTFY_TOPIC is not set or the list is empty.
     """
@@ -64,10 +100,16 @@ def send_new_events_notification(events: list["Event"]) -> None:
 
     base_url = os.getenv("NTFY_URL", "https://ntfy.sh").rstrip("/")
     app_base = os.getenv("APP_BASE_URL", "http://localhost:8000").rstrip("/")
+    max_individual = int(os.getenv("NTFY_MAX_INDIVIDUAL", "5"))
+
+    if len(events) > max_individual:
+        _send_summary(events, f"{base_url}/{topic}", app_base)
+        return
 
     for ev in events:
+        primary, _ = _labels(ev)
         headers = {
-            "Title": _rfc2047(f"🎵 {ev.title}"),
+            "Title": _rfc2047(f"🎵 {primary}"),
             "Priority": "default",
             "Tags": "ticket",
             # JSON form escapes non-ASCII (HTTP headers must be ASCII) and is
